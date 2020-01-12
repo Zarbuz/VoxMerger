@@ -16,12 +16,12 @@ namespace VoxMerger.Vox
         private int _totalBlockCount;
         private int _countSize;
         private List<Color> _usedColors = new List<Color>();
-        private Dictionary<int, List<int>> _indexAdded = new Dictionary<int, List<int>>();
+        private Dictionary<int, KeyValuePair<int, int>> _usedIndexColors = new Dictionary<int, KeyValuePair<int, int>>();
         public bool WriteModel(string absolutePath, List<VoxModel> models)
         {
             _models = models;
             _usedColors.Clear();
-            _indexAdded.Clear();
+            _usedIndexColors.Clear();
             using (var writer = new BinaryWriter(File.Open(absolutePath, FileMode.Create)))
             {
                 writer.Write(Encoding.UTF8.GetBytes(HEADER));
@@ -118,15 +118,10 @@ namespace VoxMerger.Vox
         private void WriteChunks(BinaryWriter writer)
         {
             WritePaletteChunk(writer);
-            for (int i = 0; i < _models.Count; i++)
+            for (int i = 0; i < _usedColors.Count; i++)
             {
-                for (int j = 0; j < _models[i].materialChunks.Count; j++)
-                {
-                    if (_indexAdded[i].Contains(j))
-                    {
-                        WriteMaterialChunk(writer, _models[i].materialChunks[j], j + 1);
-                    }
-                }
+                KeyValuePair<int, int> modelIndex = _usedIndexColors[i];
+                WriteMaterialChunk(writer, _models[modelIndex.Key].materialChunks[modelIndex.Value - 1], i + 1);
             }
 
             using (var progressbar = new ProgressBar())
@@ -159,7 +154,7 @@ namespace VoxMerger.Vox
                     index++;
                 }
             }
-            
+
         }
 
         /// <summary>
@@ -300,12 +295,10 @@ namespace VoxMerger.Vox
                             writer.Write((i != 0) ? (byte)i : (byte)1);
                             count++;
                         }
-                        
+
                     }
                 }
             }
-
-            Console.WriteLine(count);
         }
 
         /// <summary>
@@ -319,21 +312,22 @@ namespace VoxMerger.Vox
             writer.Write(0);
             _usedColors = new List<Color>(256);
 
+            int index = 0;
             for (int i = 0; i < _models.Count; i++)
             {
                 VoxModel model = _models[i];
-                _indexAdded[i] = new List<int>();
                 for (int j = 0; j < model.palette.Length; j++)
                 {
                     Color color = model.palette[j];
                     if (_usedColors.Count < 256 && !_usedColors.Contains(color) && color != Color.Empty)
                     {
-                        _indexAdded[i].Add(j);
+                        _usedIndexColors[index] = new KeyValuePair<int, int>(i, j);
                         _usedColors.Add(color);
                         writer.Write(color.R);
                         writer.Write(color.G);
                         writer.Write(color.B);
                         writer.Write(color.A);
+                        index++;
                     }
                 }
             }
