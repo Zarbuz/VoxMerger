@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using NDesk.Options;
 
 namespace VoxMerger
 {
@@ -10,6 +11,10 @@ namespace VoxMerger
     {
         static void Main(string[] args)
         {
+            OptionSet options = new OptionSet()
+            {
+                {"" }
+            }
         }
     }
 }

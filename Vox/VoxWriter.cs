@@ -1,10 +1,15 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using VoxMerger.Extensions;
+using VoxMerger.Schematics;
+using VoxMerger.Schematics.Tools;
+using VoxMerger.Utils;
 
 namespace VoxMerger.Vox
 {
