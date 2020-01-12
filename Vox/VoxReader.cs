@@ -16,6 +16,7 @@ namespace VoxMerger.Vox
         {
             VoxModel output = new VoxModel();
             var name = Path.GetFileNameWithoutExtension(absolutePath);
+            _voxelCountLastXYZIChunk = 0;
             _logOutputFile = name + "-" + DateTime.Now.ToString("y-MM-d_HH.m.s") + ".txt";
             using (var reader = new BinaryReader(new MemoryStream(File.ReadAllBytes(absolutePath))))
             {

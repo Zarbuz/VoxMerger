@@ -126,7 +126,7 @@ namespace VoxMerger.Vox
                 {
                     for (int j = 0; j < _models[i].voxelFrames.Count; j++)
                     {
-                        WriteSizeChunk(writer, _models[i].transformNodeChunks[j + 1].TranslationAt());
+                        WriteSizeChunk(writer, _models[i].voxelFrames[j].GetVolumeSize());
                         WriteXyziChunk(writer, _models[i], j);
                         float progress = ((float)i / _countSize);
                         progressbar.Report(progress);
@@ -250,9 +250,9 @@ namespace VoxMerger.Vox
             writer.Write(12); //Chunk Size (constant)
             writer.Write(0); //Child Chunk Size (constant)
 
-            writer.Write(volumeSize.X); //Width
-            writer.Write(volumeSize.Y); //Height
-            writer.Write(volumeSize.Z); //Depth
+            writer.Write((int)volumeSize.X); //Width
+            writer.Write((int)volumeSize.Y); //Height
+            writer.Write((int)volumeSize.Z); //Depth
         }
 
         /// <summary>
@@ -263,27 +263,38 @@ namespace VoxMerger.Vox
         private void WriteXyziChunk(BinaryWriter writer, VoxModel model, int index)
         {
             writer.Write(Encoding.UTF8.GetBytes(XYZI));
+            //int testA = (model.voxelFrames[index].Colors.Count(t => t != 0));
+            //int testB = model.voxelFrames[index].Colors.Length;
             writer.Write((model.voxelFrames[index].Colors.Count(t => t != 0) * 4) + 4); //XYZI chunk size
             writer.Write(0); //Child chunk size (constant)
             writer.Write(model.voxelFrames[index].Colors.Count(t => t != 0)); //Blocks count
 
-            for (int tall = 0; tall < model.voxelFrames[index].VoxelsTall; tall++)
+            int count = 0;
+            for (int y = 0; y < model.voxelFrames[index].VoxelsTall; y++)
             {
-                for (int deep = 0; deep < model.voxelFrames[index].VoxelsDeep; deep++)
+                for (int z = 0; z < model.voxelFrames[index].VoxelsDeep; z++)
                 {
-                    for (int wide = 0; wide < model.voxelFrames[index].VoxelsWide; wide++)
+                    for (int x = 0; x < model.voxelFrames[index].VoxelsWide; x++)
                     {
-                        int paletteIndex = model.voxelFrames[index].Get(wide, tall, deep);
+                        int paletteIndex = model.voxelFrames[index].Get(x, y, z);
                         Color color = model.palette[paletteIndex];
-                        writer.Write(wide);
-                        writer.Write(tall);
-                        writer.Write(deep);
 
-                        int i = _usedColors.IndexOf(color) + 1;
-                        writer.Write((i != 0) ? (byte)i : (byte)1);
+                        if (color != Color.Empty)
+                        {
+                            writer.Write((byte)(x % model.voxelFrames[index].VoxelsWide));
+                            writer.Write((byte)(y % model.voxelFrames[index].VoxelsTall));
+                            writer.Write((byte)(z % model.voxelFrames[index].VoxelsDeep));
+
+                            int i = _usedColors.IndexOf(color) + 1;
+                            writer.Write((i != 0) ? (byte)i : (byte)1);
+                            count++;
+                        }
+                        
                     }
                 }
             }
+
+            Console.WriteLine(count);
         }
 
         /// <summary>
