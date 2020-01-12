@@ -4,9 +4,6 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using VoxMerger.Extensions;
-using VoxMerger.Schematics;
 using VoxMerger.Schematics.Tools;
 using VoxMerger.Utils;
 using VoxMerger.Vox.Chunks;
@@ -19,11 +16,12 @@ namespace VoxMerger.Vox
         private int _totalBlockCount;
         private int _countSize;
         private List<Color> _usedColors = new List<Color>();
-
+        private Dictionary<int, List<int>> _indexAdded = new Dictionary<int, List<int>>();
         public bool WriteModel(string absolutePath, List<VoxModel> models)
         {
             _models = models;
             _usedColors.Clear();
+            _indexAdded.Clear();
             using (var writer = new BinaryWriter(File.Open(absolutePath, FileMode.Create)))
             {
                 writer.Write(Encoding.UTF8.GetBytes(HEADER));
@@ -51,6 +49,7 @@ namespace VoxMerger.Vox
             int chunknTRN = 60 * _countSize;
             int chunknSHP = 32 * _countSize;
             int chunkRGBA = 1024 + 12;
+            int chunkMATL = (12 + 194) * 256;
 
             for (int i = 0; i < _models.Count; i++)
             {
@@ -72,6 +71,7 @@ namespace VoxMerger.Vox
             childrenChunkSize += chunknTRN; //nTRN CHUNK
             childrenChunkSize += chunknSHP;
             childrenChunkSize += chunkRGBA;
+            childrenChunkSize += chunkMATL;
 
             return childrenChunkSize;
         }
@@ -118,6 +118,17 @@ namespace VoxMerger.Vox
         private void WriteChunks(BinaryWriter writer)
         {
             WritePaletteChunk(writer);
+            for (int i = 0; i < _models.Count; i++)
+            {
+                for (int j = 0; j < _models[i].materialChunks.Count; j++)
+                {
+                    if (_indexAdded[i].Contains(j))
+                    {
+                        WriteMaterialChunk(writer, _models[i].materialChunks[j], j + 1);
+                    }
+                }
+            }
+
             using (var progressbar = new ProgressBar())
             {
                 Console.WriteLine("[LOG] Started to write chunks ...");
@@ -148,7 +159,7 @@ namespace VoxMerger.Vox
                     index++;
                 }
             }
-
+            
         }
 
         /// <summary>
@@ -308,12 +319,16 @@ namespace VoxMerger.Vox
             writer.Write(0);
             _usedColors = new List<Color>(256);
 
-            foreach (VoxModel model in _models)
+            for (int i = 0; i < _models.Count; i++)
             {
-                foreach (Color color in model.palette)
+                VoxModel model = _models[i];
+                _indexAdded[i] = new List<int>();
+                for (int j = 0; j < model.palette.Length; j++)
                 {
+                    Color color = model.palette[j];
                     if (_usedColors.Count < 256 && !_usedColors.Contains(color) && color != Color.Empty)
                     {
+                        _indexAdded[i].Add(j);
                         _usedColors.Add(color);
                         writer.Write(color.R);
                         writer.Write(color.G);
@@ -329,6 +344,29 @@ namespace VoxMerger.Vox
                 writer.Write((byte)0);
                 writer.Write((byte)0);
                 writer.Write((byte)0);
+            }
+        }
+
+
+        /// <summary>
+        /// Write MATL chunk
+        /// </summary>
+        /// <param name="writer"></param>
+        private void WriteMaterialChunk(BinaryWriter writer, MaterialChunk materialChunk, int index)
+        {
+            writer.Write(Encoding.UTF8.GetBytes(MATL));
+            writer.Write(194);
+            writer.Write(0); //Child Chunk Size (constant)
+
+            writer.Write(index); //Id
+            writer.Write(12); //ReadDICT size
+
+            foreach (KeyValue keyValue in materialChunk.properties)
+            {
+                writer.Write(Encoding.UTF8.GetByteCount(keyValue.Key));
+                writer.Write(Encoding.UTF8.GetBytes(keyValue.Key));
+                writer.Write(Encoding.UTF8.GetByteCount(keyValue.Value));
+                writer.Write(Encoding.UTF8.GetBytes(keyValue.Value));
             }
         }
     }
