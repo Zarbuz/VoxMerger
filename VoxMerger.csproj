@@ -74,6 +74,7 @@
     <Compile Include="Vox\VoxParser.cs" />
     <Compile Include="Vox\VoxReader.cs" />
     <Compile Include="Vox\VoxWriter.cs" />
+    <Compile Include="Vox\VoxWriterCustom.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

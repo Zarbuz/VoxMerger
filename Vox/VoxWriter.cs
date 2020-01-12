@@ -24,7 +24,6 @@ namespace VoxMerger.Vox
         private int _volumeSize;
 
         private int _countBlocks;
-        private int _childrenChunkSize;
         private Schematic _schematic;
         private Rotation _rotation = Rotation._PZ_PZ_P;
         private BlockGlobal[] _firstBlockInEachRegion;
@@ -33,7 +32,7 @@ namespace VoxMerger.Vox
 
         public bool WriteModel(string absolutePath, Schematic schematic, int direction, Rotation rotation, int volumeSize = 126) 
         {
-            _width = _length = _height = _countSize = _totalBlockCount = _countBlocks = _childrenChunkSize = 0;
+            _width = _length = _height = _countSize = _totalBlockCount = _countBlocks = 0;
             _schematic = schematic;
             _direction = direction;
             _volumeSize = volumeSize;
@@ -51,12 +50,27 @@ namespace VoxMerger.Vox
             return true;
         }
 
+        public bool WriteModel(string absolutePath, List<VoxModel> models)
+        {
+            using (var writer = new BinaryWriter(File.Open(absolutePath, FileMode.Create)))
+            {
+                writer.Write(Encoding.UTF8.GetBytes(HEADER));
+                writer.Write(VERSION);
+                writer.Write(Encoding.UTF8.GetBytes(MAIN));
+                writer.Write(0);
+                writer.Write(CountChildrenSize());
+            }
+
+            return true;
+        }
+
         /// <summary>
         /// Count the total bytes of all children chunks
         /// </summary>
         /// <returns></returns>
         private int CountChildrenSize()
         {
+            int childrenChunkSize = 0;
             _width = (int)Math.Ceiling(((decimal)_schematic.Width / _volumeSize));
             _length = (int)Math.Ceiling(((decimal)_schematic.Length / _volumeSize));
             _height = (int)Math.Ceiling(((decimal)_schematic.Heigth / _volumeSize));
@@ -81,15 +95,15 @@ namespace VoxMerger.Vox
                 chunknTRN += Encoding.UTF8.GetByteCount(pos);
                 chunknTRN += Encoding.UTF8.GetByteCount(Convert.ToString((byte)_rotation));
             }
-            _childrenChunkSize = chunkSize; //SIZE CHUNK
-            _childrenChunkSize += chunkXYZI; //XYZI CHUNK
-            _childrenChunkSize += chunknTRNMain; //First nTRN CHUNK (constant)
-            _childrenChunkSize += chunknGRP; //nGRP CHUNK
-            _childrenChunkSize += chunknTRN; //nTRN CHUNK
-            _childrenChunkSize += chunknSHP;
-            _childrenChunkSize += chunkRGBA;
+            childrenChunkSize = chunkSize; //SIZE CHUNK
+            childrenChunkSize += chunkXYZI; //XYZI CHUNK
+            childrenChunkSize += chunknTRNMain; //First nTRN CHUNK (constant)
+            childrenChunkSize += chunknGRP; //nGRP CHUNK
+            childrenChunkSize += chunknTRN; //nTRN CHUNK
+            childrenChunkSize += chunknSHP;
+            childrenChunkSize += chunkRGBA;
 
-            return _childrenChunkSize;
+            return childrenChunkSize;
         }
 
         /// <summary>
