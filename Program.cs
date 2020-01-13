@@ -13,9 +13,35 @@ namespace VoxMerger
     {
         static void Main(string[] args)
         {
-            string folder = Path.GetFullPath("vox");
+            string inputFolder = string.Empty;
+            string outputFile = string.Empty;
+            bool shopHelp = false;
+            OptionSet options = new OptionSet()
+            {
+                {"i|input=", "input folder", v => inputFolder = v},
+                {"o|output=", "output file", v => outputFile = v},
+                {"h|help", "show this message and exit", v => shopHelp = v != null},
+            };
 
-            List<string> ext = new List<string> { "vox" };
+            try
+            {
+                List<string> extra = options.Parse(args);
+                CheckHelp(options, shopHelp);
+                CheckArguments(inputFolder, outputFile);
+                ProcessFolder(inputFolder, outputFile);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+        }
+
+
+        private static void ProcessFolder(string inputFolder, string outputFile)
+        {
+            string folder = Path.GetFullPath(inputFolder);
+
             List<string> files = Directory.GetFiles(folder).ToList();
 
             List<VoxModel> models = new List<VoxModel>();
@@ -24,14 +50,47 @@ namespace VoxMerger
             Console.WriteLine("[LOG] Started to read all vox files at path: " + folder);
             foreach (string file in files)
             {
-                Console.WriteLine("[LOG] Started to load model: " + file);
-                models.Add(reader.LoadModel(file));
+                if (Path.GetExtension(file) == ".vox")
+                {
+                    Console.WriteLine("[LOG] Started to load model: " + file);
+                    models.Add(reader.LoadModel(file));
+                }
+
             }
 
             VoxWriterCustom writer = new VoxWriterCustom();
-            writer.WriteModel("test.vox", models);
+            writer.WriteModel(outputFile, models);
+            //reader.LoadModel(outputFile);
+        }
 
-            reader.LoadModel("test.vox");
+        private static void CheckArguments(string inputFolder, string outputFile)
+        {
+            if (string.IsNullOrEmpty(inputFolder))
+            {
+                Console.WriteLine("[ERR] Missing input folder path. Check help for more informations.");
+                Environment.Exit(1);
+            }
+
+            if (string.IsNullOrEmpty(outputFile))
+            {
+                Console.WriteLine("[ERR] Missing output file path. Check help for more informations.");
+                Environment.Exit(1);
+            }
+        }
+        private static void CheckHelp(OptionSet options, bool shopHelp)
+        {
+            if (shopHelp)
+            {
+                ShowHelp(options);
+                Environment.Exit(0);
+            }
+        }
+
+        private static void ShowHelp(OptionSet p)
+        {
+            Console.WriteLine("Usage: VoxMerge --i INPUT --o OUTPUT");
+            Console.WriteLine("Options: ");
+            p.WriteOptionDescriptions(Console.Out);
         }
     }
 }

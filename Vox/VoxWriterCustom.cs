@@ -7,7 +7,6 @@ using System.Text;
 using VoxMerger.Schematics.Tools;
 using VoxMerger.Utils;
 using VoxMerger.Vox.Chunks;
-using Was.CountedStream;
 
 namespace VoxMerger.Vox
 {
