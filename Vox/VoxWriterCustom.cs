@@ -7,6 +7,7 @@ using System.Text;
 using VoxMerger.Schematics.Tools;
 using VoxMerger.Utils;
 using VoxMerger.Vox.Chunks;
+using Was.CountedStream;
 
 namespace VoxMerger.Vox
 {
@@ -17,7 +18,6 @@ namespace VoxMerger.Vox
         private int _countSize;
         private List<Color> _usedColors = new List<Color>();
         private Dictionary<int, KeyValuePair<int, int>> _usedIndexColors = new Dictionary<int, KeyValuePair<int, int>>();
-        private int _byteWriten = 0;
         public bool WriteModel(string absolutePath, List<VoxModel> models)
         {
             _models = models;
@@ -29,8 +29,17 @@ namespace VoxMerger.Vox
                 writer.Write(VERSION);
                 writer.Write(Encoding.UTF8.GetBytes(MAIN));
                 writer.Write(0);
-                writer.Write(CountChildrenSize());
-                WriteChunks(writer);
+                int childrenSize = CountChildrenSize();
+                writer.Write(childrenSize);
+                int byteWritten = WriteChunks(writer);
+
+                Console.WriteLine("[LOG] Bytes to write for childs chunks: " + childrenSize);
+                Console.WriteLine("[LOG] Bytes written: " + byteWritten);
+                if (byteWritten != childrenSize)
+                {
+                    Console.WriteLine("[LOG] Children size and bytes written isn't the same! Vox is corrupted!");
+                    return false;
+                }
             }
 
             return true;
@@ -39,22 +48,24 @@ namespace VoxMerger.Vox
         private int CountChildrenSize()
         {
             int childrenChunkSize = 0;
-            _countSize = CountTotalRegions();
+            _countSize = CountTotalTransforms();
             _totalBlockCount = CountTotalBlocks();
+            int totalModels = CountTotalModels();
+            int totalRegions = CountTotalRegions();
             Console.WriteLine("[INFO] Total blocks: " + _totalBlockCount);
 
-            int chunkSize = 24 * _countSize; //24 = 12 bytes for header and 12 bytes of content
-            int chunkXYZI = (16 * _countSize) + _totalBlockCount * 4; //16 = 12 bytes for header and 4 for the voxel count + (number of voxels) * 4
+            int chunkSIZE = 24 * totalModels; //24 = 12 bytes for header and 12 bytes of content
+            int chunkXYZI = (16 * totalModels) + _totalBlockCount * 4; //16 = 12 bytes for header and 4 for the voxel count + (number of voxels) * 4
             int chunknTRNMain = 40; //40 = 
             int chunknGRP = 24 + _countSize * 4;
             int chunknTRN = 60 * _countSize;
             int chunknSHP = 32 * _countSize;
             int chunkRGBA = 1024 + 12;
-            int chunkMATL = (12 + 194) * 256;
+            int chunkMATL = 52530;
 
             for (int i = 0; i < _models.Count; i++)
             {
-                for (int j = 0; j < _models[i].transformNodeChunks.Count; j++)
+                for (int j = 1; j < _models[i].transformNodeChunks.Count; j++)
                 {
                     Vector3 worldPosition = _models[i].transformNodeChunks[j].TranslationAt();
                     Rotation rotation = _models[i].transformNodeChunks[j].RotationAt();
@@ -63,10 +74,18 @@ namespace VoxMerger.Vox
                     chunknTRN += Encoding.UTF8.GetByteCount(pos);
                     chunknTRN += Encoding.UTF8.GetByteCount(Convert.ToString((byte)rotation));
                 }
-                
             }
 
-            childrenChunkSize = chunkSize; //SIZE CHUNK
+            Console.WriteLine("[LOG] Chunk RGBA: " + chunkRGBA);
+            Console.WriteLine("[LOG] Chunk MATL: " + chunkMATL);
+            Console.WriteLine("[LOG] Chunk SIZE: " + chunkSIZE);
+            Console.WriteLine("[LOG] Chunk XYZI: " + chunkXYZI);
+            Console.WriteLine("[LOG] Chunk nTRN Main: " + chunknTRNMain);
+            Console.WriteLine("[LOG] Chunk nGRP: " + chunknGRP);
+            Console.WriteLine("[LOG] Chunk nTRN: " + chunknTRN);
+            Console.WriteLine("[LOG] Chunk nSHP: " + chunknSHP);
+
+            childrenChunkSize = chunkSIZE; //SIZE CHUNK
             childrenChunkSize += chunkXYZI; //XYZI CHUNK
             childrenChunkSize += chunknTRNMain; //First nTRN CHUNK (constant)
             childrenChunkSize += chunknGRP; //nGRP CHUNK
@@ -108,72 +127,96 @@ namespace VoxMerger.Vox
             return total;
         }
 
-        private int CountTotalRegions()
+        private int CountTotalTransforms()
         {
             return _models.Sum(t => t.transformNodeChunks.Count - 1);
         }
 
+        private int CountTotalModels()
+        {
+            return _models.Sum(t => t.voxelFrames.Count);
+        }
+
+        private int CountTotalRegions()
+        {
+            return _models.Sum(t => t.groupNodeChunks.Count);
+        }
         /// <summary>
         /// Main loop for write all chunks
         /// </summary>
         /// <param name="writer"></param>
-        private void WriteChunks(BinaryWriter writer)
+        private int WriteChunks(BinaryWriter writer)
         {
-            WritePaletteChunk(writer);
+            int byteWritten = 0;
+            int RGBA = WritePaletteChunk(writer);
+
+            int MATL = 0;
             for (int i = 0; i < _usedColors.Count; i++)
-            
             {
                 KeyValuePair<int, int> modelIndex = _usedIndexColors[i];
-                WriteMaterialChunk(writer, _models[modelIndex.Key].materialChunks[modelIndex.Value - 1], i + 1);
+                MATL += WriteMaterialChunk(writer, _models[modelIndex.Key].materialChunks[modelIndex.Value - 1], i + 1);
             }
+
+            int SIZE = 0;
+            int XYZI = 0;
 
             using (var progressbar = new ProgressBar())
             {
-                Console.WriteLine("[LOG] Started to write chunks ...");
-
                 for (int i = 0; i < _models.Count; i++)
                 {
                     for (int j = 0; j < _models[i].voxelFrames.Count; j++)
                     {
-                        WriteSizeChunk(writer, _models[i].voxelFrames[j].GetVolumeSize());
-                        WriteXyziChunk(writer, _models[i], j);
+                        SIZE += WriteSizeChunk(writer, _models[i].voxelFrames[j].GetVolumeSize());
+                        XYZI += WriteXyziChunk(writer, _models[i], j);
                         float progress = ((float)i / _countSize);
                         progressbar.Report(progress);
                     }
                 }
-                Console.WriteLine("[LOG] Done.");
             }
 
-            WriteMainTranformNode(writer);
-            WriteGroupChunk(writer);
+            int nTRNmain = WriteMainTranformNode(writer);
+            int nGRP = WriteGroupChunk(writer);
 
             int index = 0;
+
+            Dictionary<int, int> modelIds = new Dictionary<int, int>();
             int indexModel = 0;
-            List<int> modelIds = new List<int>();
+            int nTRN = 0;
+            int nSHP = 0;
             for (int i = 0; i < _models.Count; i++)
             {
-                modelIds.Clear();
                 for (int j = 1; j < _models[i].transformNodeChunks.Count; j++)
                 {
                     int childId = _models[i].transformNodeChunks[j].childId;
 
                     ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.First(t => t.id == childId);
-                    int modelId = shapeNode.models[0].modelId;
+                    int modelId = shapeNode.models[0].modelId + i;
 
-                    WriteTransformChunk(writer, _models[i].transformNodeChunks[j], index);
-                    WriteShapeChunk(writer, index, indexModel);
-
-                    if (!modelIds.Contains(modelId))
+                    if (!modelIds.ContainsKey(modelId + i))
                     {
-                        modelIds.Add(modelId);
+                        modelIds.Add(modelId + i, indexModel);
                         indexModel++;
                     }
-                    
+
+                    nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], index);
+                    nSHP += WriteShapeChunk(writer, index, modelIds[modelId + i]);
+
                     index++;
 
                 }
             }
 
+            Console.WriteLine("[LOG] Written RGBA: " + RGBA);
+            Console.WriteLine("[LOG] Written MATL: " + MATL);
+            Console.WriteLine("[LOG] Written SIZE: " + SIZE);
+            Console.WriteLine("[LOG] Written XYZI: " + XYZI);
+            Console.WriteLine("[LOG] Written main nTRN: " + nTRNmain);
+            Console.WriteLine("[LOG] Written nGRP: " + nGRP);
+            Console.WriteLine("[LOG] Written nTRN: " + nTRN);
+            Console.WriteLine("[LOG] Written nSHP: " + nSHP);
+
+            byteWritten = RGBA + MATL + SIZE + XYZI + nTRNmain + nGRP + nTRN + nSHP;
+            return byteWritten;
         }
 
         /// <summary>
@@ -181,9 +224,12 @@ namespace VoxMerger.Vox
         /// </summary>
         /// <param name="writer"></param>
         /// <param name="index"></param>
-        private void WriteTransformChunk(BinaryWriter writer, TransformNodeChunk transformNode, int index)
+        private int WriteTransformChunk(BinaryWriter writer, TransformNodeChunk transformNode, int index)
         {
+            int byteWritten = 0;
             writer.Write(Encoding.UTF8.GetBytes(nTRN));
+            byteWritten += Encoding.UTF8.GetByteCount(nTRN);
+
             Vector3 worldPosition = transformNode.TranslationAt();
             string pos = worldPosition.X + " " + worldPosition.Y + " " + worldPosition.Z;
 
@@ -199,15 +245,24 @@ namespace VoxMerger.Vox
             writer.Write(2); //Read DICT Size (previously 1)
 
             writer.Write(2); //Read STRING size
+            byteWritten += 40;
+
             writer.Write(Encoding.UTF8.GetBytes("_r"));
             writer.Write(Encoding.UTF8.GetByteCount(Convert.ToString((byte)transformNode.RotationAt())));
             writer.Write(Encoding.UTF8.GetBytes(Convert.ToString((byte)transformNode.RotationAt())));
+
+            byteWritten += Encoding.UTF8.GetByteCount("_r");
+            byteWritten += 4;
+            byteWritten += Encoding.UTF8.GetByteCount(Convert.ToString((byte)transformNode.RotationAt()));
 
 
             writer.Write(2); //Read STRING Size
             writer.Write(Encoding.UTF8.GetBytes("_t"));
             writer.Write(Encoding.UTF8.GetByteCount(pos));
             writer.Write(Encoding.UTF8.GetBytes(pos));
+
+            byteWritten += 4 + Encoding.UTF8.GetByteCount("_t") + 4 + Encoding.UTF8.GetByteCount(pos);
+            return byteWritten;
         }
 
 
@@ -216,8 +271,9 @@ namespace VoxMerger.Vox
         /// </summary>
         /// <param name="writer"></param>
         /// <param name="index"></param>
-        private void WriteShapeChunk(BinaryWriter writer, int index, int indexModel)
+        private int WriteShapeChunk(BinaryWriter writer, int index, int indexModel)
         {
+            int byteWritten = 0;
             writer.Write(Encoding.UTF8.GetBytes(nSHP));
             writer.Write(20); //nSHP chunk size
             writer.Write(0); //nSHP child chunk size
@@ -226,6 +282,9 @@ namespace VoxMerger.Vox
             writer.Write(1);
             writer.Write(indexModel);
             writer.Write(0);
+
+            byteWritten += Encoding.UTF8.GetByteCount(nSHP) + 28;
+            return byteWritten;
         }
 
 
@@ -233,8 +292,9 @@ namespace VoxMerger.Vox
         /// Write the main trande node chunk
         /// </summary>
         /// <param name="writer"></param>
-        private void WriteMainTranformNode(BinaryWriter writer)
+        private int WriteMainTranformNode(BinaryWriter writer)
         {
+            int byteWritten = 0;
             writer.Write(Encoding.UTF8.GetBytes(nTRN));
             writer.Write(28); //Main nTRN has always a 28 bytes size
             writer.Write(0); //Child nTRN chunk size
@@ -245,32 +305,44 @@ namespace VoxMerger.Vox
             writer.Write(-1); //Layer ID
             writer.Write(1); //Read Array Size
             writer.Write(0); //ReadDICT size
+
+            byteWritten += Encoding.UTF8.GetByteCount(nTRN) + 36;
+            return byteWritten;
         }
 
         /// <summary>
         /// Write nGRP chunk
         /// </summary>
         /// <param name="writer"></param>
-        private void WriteGroupChunk(BinaryWriter writer)
+        private int WriteGroupChunk(BinaryWriter writer)
         {
+            int byteWritten = 0;
             writer.Write(Encoding.UTF8.GetBytes(nGRP));
             writer.Write(16 + (4 * (_countSize - 1))); //nGRP chunk size
             writer.Write(0); //Child nGRP chunk size
             writer.Write(1); //ID of nGRP
             writer.Write(0); //Read DICT size for attributes (none)
             writer.Write(_countSize);
+            byteWritten += Encoding.UTF8.GetByteCount(nGRP) + 20;
+
             for (int i = 0; i < _countSize; i++)
             {
                 writer.Write((2 * i) + 2); //id for childrens (start at 2, increment by 2)
+                byteWritten += 4;
             }
+
+
+            return byteWritten;
         }
 
         /// <summary>
         /// Write SIZE chunk
         /// </summary>
         /// <param name="writer"></param>
-        private void WriteSizeChunk(BinaryWriter writer, Vector3 volumeSize)
+        private int WriteSizeChunk(BinaryWriter writer, Vector3 volumeSize)
         {
+            int byteWritten = 0;
+
             writer.Write(Encoding.UTF8.GetBytes(SIZE));
             writer.Write(12); //Chunk Size (constant)
             writer.Write(0); //Child Chunk Size (constant)
@@ -278,6 +350,9 @@ namespace VoxMerger.Vox
             writer.Write((int)volumeSize.X); //Width
             writer.Write((int)volumeSize.Y); //Height
             writer.Write((int)volumeSize.Z); //Depth
+
+            byteWritten += Encoding.UTF8.GetByteCount(SIZE) + 20;
+            return byteWritten;
         }
 
         /// <summary>
@@ -285,8 +360,9 @@ namespace VoxMerger.Vox
         /// </summary>
         /// <param name="writer"></param>
         /// <param name="index"></param>
-        private void WriteXyziChunk(BinaryWriter writer, VoxModel model, int index)
+        private int WriteXyziChunk(BinaryWriter writer, VoxModel model, int index)
         {
+            int byteWritten = 0;
             writer.Write(Encoding.UTF8.GetBytes(XYZI));
             //int testA = (model.voxelFrames[index].Colors.Count(t => t != 0));
             //int testB = model.voxelFrames[index].Colors.Length;
@@ -294,6 +370,7 @@ namespace VoxMerger.Vox
             writer.Write(0); //Child chunk size (constant)
             writer.Write(model.voxelFrames[index].Colors.Count(t => t != 0)); //Blocks count
 
+            byteWritten += Encoding.UTF8.GetByteCount(XYZI) + 12;
             int count = 0;
             for (int y = 0; y < model.voxelFrames[index].VoxelsTall; y++)
             {
@@ -313,22 +390,29 @@ namespace VoxMerger.Vox
                             int i = _usedColors.IndexOf(color) + 1;
                             writer.Write((i != 0) ? (byte)i : (byte)1);
                             count++;
+
+                            byteWritten += 4;
                         }
 
                     }
                 }
             }
+
+            return byteWritten;
         }
 
         /// <summary>
         /// Write RGBA chunk
         /// </summary>
         /// <param name="writer"></param>
-        private void WritePaletteChunk(BinaryWriter writer)
+        private int WritePaletteChunk(BinaryWriter writer)
         {
+            int byteCount = 0;
             writer.Write(Encoding.UTF8.GetBytes(RGBA));
             writer.Write(1024);
             writer.Write(0);
+
+            byteCount += Encoding.UTF8.GetByteCount(RGBA) + 8;
             _usedColors = new List<Color>(256);
 
             int index = 0;
@@ -346,6 +430,7 @@ namespace VoxMerger.Vox
                         writer.Write(color.G);
                         writer.Write(color.B);
                         writer.Write(color.A);
+                        byteCount += 4;
                         index++;
                     }
                 }
@@ -357,7 +442,10 @@ namespace VoxMerger.Vox
                 writer.Write((byte)0);
                 writer.Write((byte)0);
                 writer.Write((byte)0);
+                byteCount += 4;
             }
+
+            return byteCount;
         }
 
 
@@ -365,8 +453,9 @@ namespace VoxMerger.Vox
         /// Write MATL chunk
         /// </summary>
         /// <param name="writer"></param>
-        private void WriteMaterialChunk(BinaryWriter writer, MaterialChunk materialChunk, int index)
+        private int WriteMaterialChunk(BinaryWriter writer, MaterialChunk materialChunk, int index)
         {
+            int byteWritten = 0;
             writer.Write(Encoding.UTF8.GetBytes(MATL));
             writer.Write(194);
             writer.Write(0); //Child Chunk Size (constant)
@@ -374,13 +463,19 @@ namespace VoxMerger.Vox
             writer.Write(index); //Id
             writer.Write(12); //ReadDICT size
 
+            byteWritten += Encoding.UTF8.GetByteCount(MATL) + 16;
+
             foreach (KeyValue keyValue in materialChunk.properties)
             {
                 writer.Write(Encoding.UTF8.GetByteCount(keyValue.Key));
                 writer.Write(Encoding.UTF8.GetBytes(keyValue.Key));
                 writer.Write(Encoding.UTF8.GetByteCount(keyValue.Value));
                 writer.Write(Encoding.UTF8.GetBytes(keyValue.Value));
+
+                byteWritten += 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value);
             }
+
+            return byteWritten;
         }
     }
 }
