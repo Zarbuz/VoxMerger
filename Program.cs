@@ -1,10 +1,8 @@
-﻿using System;
+﻿using NDesk.Options;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using NDesk.Options;
 using VoxMerger.Vox;
 
 namespace VoxMerger

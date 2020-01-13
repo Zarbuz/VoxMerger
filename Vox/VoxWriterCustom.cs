@@ -239,7 +239,7 @@ namespace VoxMerger.Vox
             writer.Write(0); //ReadDICT size for attributes (none)
             writer.Write(2 * index + 3);//Child ID
             writer.Write(-1); //Reserved ID
-            writer.Write(-1); //Layer ID
+            writer.Write(transformNode.layerId); //Layer ID
             writer.Write(1); //Read Array Size
             writer.Write(2); //Read DICT Size (previously 1)
 
