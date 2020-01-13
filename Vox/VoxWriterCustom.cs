@@ -60,7 +60,7 @@ namespace VoxMerger.Vox
             int chunknTRN = 60 * _countSize;
             int chunknSHP = 32 * _countSize;
             int chunkRGBA = 1024 + 12;
-            int chunkMATL = 52530;
+            int chunkMATL = 206 * CountColorInPalette();
 
             for (int i = 0; i < _models.Count; i++)
             {
@@ -421,7 +421,7 @@ namespace VoxMerger.Vox
                 for (int j = 0; j < model.palette.Length; j++)
                 {
                     Color color = model.palette[j];
-                    if (_usedColors.Count < 256 && !_usedColors.Contains(color) && color != Color.Empty)
+                    if (_usedColors.Count < 256 && !_usedColors.Contains(color) && color != Color.Empty && IsColorUsedByModel(j, i))
                     {
                         _usedIndexColors[index] = new KeyValuePair<int, int>(i, j);
                         _usedColors.Add(color);
@@ -441,10 +441,36 @@ namespace VoxMerger.Vox
                 writer.Write((byte)0);
                 writer.Write((byte)0);
                 writer.Write((byte)0);
+                
                 byteCount += 4;
             }
 
             return byteCount;
+        }
+
+        /// <summary>
+        /// Count the number of colors really used by all models
+        /// </summary>
+        /// <returns></returns>
+        private int CountColorInPalette()
+        {
+            int count = 0;
+            List<Color> usedColors = new List<Color>();
+            for (int i = 0; i < _models.Count; i++)
+            {
+                VoxModel model = _models[i];
+                for (int j = 0; j < model.palette.Length; j++)
+                {
+                    Color color = model.palette[j];
+                    if (usedColors.Count < 256 && !usedColors.Contains(color) && color != Color.Empty && IsColorUsedByModel(j, i))
+                    {
+                        usedColors.Add(color);
+                        count++;
+                    }
+                }
+            }
+
+            return count;
         }
 
 
@@ -475,6 +501,12 @@ namespace VoxMerger.Vox
             }
 
             return byteWritten;
+        }
+
+        private bool IsColorUsedByModel(int indexPalette, int indexModel)
+        {
+            VoxModel model = _models[indexModel];
+            return model.voxelFrames.Select(t1 => t1.Colors.Any(t => t == indexPalette)).FirstOrDefault();
         }
     }
 }

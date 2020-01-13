@@ -21,18 +21,11 @@ namespace VoxMerger
                 {"h|help", "show this message and exit", v => shopHelp = v != null},
             };
 
-            try
-            {
-                List<string> extra = options.Parse(args);
-                CheckHelp(options, shopHelp);
-                CheckArguments(inputFolder, outputFile);
-                ProcessFolder(inputFolder, outputFile);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                throw;
-            }
+            List<string> extra = options.Parse(args);
+            CheckHelp(options, shopHelp);
+            CheckArguments(inputFolder, outputFile);
+            ProcessFolder(inputFolder, outputFile);
+
         }
 
 
@@ -57,7 +50,14 @@ namespace VoxMerger
             }
 
             VoxWriterCustom writer = new VoxWriterCustom();
-            writer.WriteModel(outputFile, models);
+            if (outputFile.Contains(".vox"))
+            {
+                writer.WriteModel(outputFile, models);
+            }
+            else
+            {
+                writer.WriteModel(outputFile + ".vox", models);
+            }
             //reader.LoadModel(outputFile);
         }
 
