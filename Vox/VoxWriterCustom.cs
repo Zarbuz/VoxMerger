@@ -4,8 +4,6 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using VoxMerger.Extensions;
 using VoxMerger.Schematics.Tools;
 using VoxMerger.Utils;
 using VoxMerger.Vox.Chunks;
@@ -201,6 +199,7 @@ namespace VoxMerger.Vox
 
                         index++;
                     }
+
                 }
             }
 
@@ -424,7 +423,7 @@ namespace VoxMerger.Vox
                     for (int j = 0; j < model.palette.Length; j++)
                     {
                         Color color = model.palette[j];
-                        if (_usedColors.Count < 256 && !_usedColors.Contains(color) && color != Color.Empty && _models[i].colorUsed.Contains((byte) j))
+                        if (_usedColors.Count < 256 && !_usedColors.Contains(color) && color != Color.Empty && _models[i].colorUsed.Contains((byte)j))
                         {
                             _usedIndexColors[usedIndexColor] = new KeyValuePair<int, int>(i, j);
                             _usedColors.Add(color);
@@ -567,6 +566,16 @@ namespace VoxMerger.Vox
                         size += Encoding.UTF8.GetByteCount(Convert.ToString((byte)rotation));
                         size += 4 + Encoding.UTF8.GetByteCount("_t") + 4 + Encoding.UTF8.GetByteCount(pos);
 
+                    }
+                    else
+                    {
+                        GroupNodeChunk groupNode = _models[i].groupNodeChunks.First(t => t.id == childId);
+                        foreach (int childGroupId in groupNode.childIds)
+                        {
+                            TransformNodeChunk transformNode = _models[i].transformNodeChunks.First(t => t.id == childGroupId);
+                            Vector3 pos = transformNode.frameAttributes[0]._t;
+                            transformNode.frameAttributes[0]._t = pos + _models[i].transformNodeChunks[j].frameAttributes[0]._t;
+                        }
                     }
                 }
             }

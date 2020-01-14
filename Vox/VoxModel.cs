@@ -63,6 +63,8 @@ namespace VoxMerger.Vox
                     float.TryParse(data[2], out result.Z);
                 return result;
             }
+            set => items[0].Value = value.X + " " + value.Y + " " + value.Z;
+        }
         }
     }
 
@@ -106,4 +108,3 @@ namespace VoxMerger.Vox
         _NX_NW_N, _NY_NW_N, _NZ_NW_N, _NW_NW_N,
     }  
 
-}

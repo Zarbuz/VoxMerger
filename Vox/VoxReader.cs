@@ -101,7 +101,7 @@ namespace VoxMerger.Vox
                         int d = chunkReader.ReadInt32();
                         if (_childCount >= output.voxelFrames.Count)
                             output.voxelFrames.Add(new VoxelData());
-                        output.voxelFrames[_childCount].Resize(w, d, h);
+                        output.voxelFrames[_childCount].Resize(w, h, d);
                         _childCount++;
                         break;
                     case XYZI:
