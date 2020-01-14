@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -15,6 +16,7 @@ namespace VoxMerger.Vox
         public VoxModel LoadModel(string absolutePath)
         {
             VoxModel output = new VoxModel();
+            output.colorUsed = new HashSet<byte>();
             var name = Path.GetFileNameWithoutExtension(absolutePath);
             _voxelCountLastXYZIChunk = 0;
             _logOutputFile = name + "-" + DateTime.Now.ToString("y-MM-d_HH.m.s") + ".txt";
@@ -113,6 +115,7 @@ namespace VoxMerger.Vox
                             z = chunkReader.ReadByte();
                             color = chunkReader.ReadByte();
                             frame.Set(x, y, z, color);
+                            output.colorUsed.Add(color);
                         }
                         break;
                     case RGBA:

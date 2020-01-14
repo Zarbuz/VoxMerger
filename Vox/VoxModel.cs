@@ -9,6 +9,7 @@ namespace VoxMerger.Vox
     public class VoxModel
     {
         public Color[] palette;
+        public HashSet<byte> colorUsed;
         public List<VoxelData> voxelFrames = new List<VoxelData>();
         public List<MaterialChunk> materialChunks = new List<MaterialChunk>();
         public List<TransformNodeChunk> transformNodeChunks = new List<TransformNodeChunk>();

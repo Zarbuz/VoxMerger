@@ -53,12 +53,13 @@ namespace VoxMerger
             if (outputFile.Contains(".vox"))
             {
                 writer.WriteModel(outputFile, models);
+                reader.LoadModel(outputFile);
             }
             else
             {
                 writer.WriteModel(outputFile + ".vox", models);
+                reader.LoadModel(outputFile + ".vox");
             }
-            //reader.LoadModel(outputFile);
         }
 
         private static void CheckArguments(string inputFolder, string outputFile)
