@@ -57,23 +57,11 @@ namespace VoxMerger.Vox
             int chunkXYZI = (16 * totalModels) + _totalBlockCount * 4; //16 = 12 bytes for header and 4 for the voxel count + (number of voxels) * 4
             int chunknTRNMain = 40; //40 = 
             int chunknGRP = 24 + _countSize * 4;
-            int chunknTRN = 60 * _countSize;
-            int chunknSHP = 32 * _countSize;
+            int chunknTRN = CountTransformChunkSize();
+            int chunknSHP = CountShapeChunkSize();
             int chunkRGBA = 1024 + 12;
             int chunkMATL = CountMaterialChunkSize();
 
-            for (int i = 0; i < _models.Count; i++)
-            {
-                for (int j = 1; j < _models[i].transformNodeChunks.Count; j++)
-                {
-                    Vector3 worldPosition = _models[i].transformNodeChunks[j].TranslationAt();
-                    Rotation rotation = _models[i].transformNodeChunks[j].RotationAt();
-
-                    string pos = worldPosition.X + " " + worldPosition.Y + " " + worldPosition.Z;
-                    chunknTRN += Encoding.UTF8.GetByteCount(pos);
-                    chunknTRN += Encoding.UTF8.GetByteCount(Convert.ToString((byte)rotation));
-                }
-            }
 
             Console.WriteLine("[LOG] Chunk RGBA: " + chunkRGBA);
             Console.WriteLine("[LOG] Chunk MATL: " + chunkMATL);
@@ -197,20 +185,22 @@ namespace VoxMerger.Vox
                 {
                     int childId = _models[i].transformNodeChunks[j].childId;
 
-                    ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.First(t => t.id == childId);
-                    int modelId = shapeNode.models[0].modelId + i;
-
-                    if (!modelIds.ContainsKey(modelId + i))
+                    ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.FirstOrDefault(t => t.id == childId);
+                    if (shapeNode != null)
                     {
-                        modelIds.Add(modelId + i, indexModel);
-                        indexModel++;
+                        int modelId = shapeNode.models[0].modelId + i;
+
+                        if (!modelIds.ContainsKey(modelId + i))
+                        {
+                            modelIds.Add(modelId + i, indexModel);
+                            indexModel++;
+                        }
+
+                        nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], index);
+                        nSHP += WriteShapeChunk(writer, index, modelIds[modelId + i]);
+
+                        index++;
                     }
-
-                    nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], index);
-                    nSHP += WriteShapeChunk(writer, index, modelIds[modelId + i]);
-
-                    index++;
-
                 }
             }
 
@@ -425,7 +415,7 @@ namespace VoxMerger.Vox
 
             int usedIndexColor = 0;
             int globalIndex = 0;
-            Console.WriteLine("Started to create an optimized palette...");
+            Console.WriteLine("[LOG] Started to create an optimized palette...");
             using (ProgressBar progressBar = new ProgressBar())
             {
                 for (int i = 0; i < _models.Count; i++)
@@ -500,6 +490,10 @@ namespace VoxMerger.Vox
         }
 
 
+        /// <summary>
+        /// Count the size of all materials chunks
+        /// </summary>
+        /// <returns></returns>
         private int CountMaterialChunkSize()
         {
             List<Color> usedColor = new List<Color>();
@@ -541,6 +535,66 @@ namespace VoxMerger.Vox
 
             return size;
         }
-        
+
+
+        /// <summary>
+        /// Count the size of all nTRN chunks
+        /// </summary>
+        /// <returns></returns>
+        private int CountTransformChunkSize()
+        {
+            int size = 0;
+            for (int i = 0; i < _models.Count; i++)
+            {
+                for (int j = 1; j < _models[i].transformNodeChunks.Count; j++)
+                {
+                    int childId = _models[i].transformNodeChunks[j].childId;
+
+                    ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.FirstOrDefault(t => t.id == childId);
+                    if (shapeNode != null)
+                    {
+                        Vector3 worldPosition = _models[i].transformNodeChunks[j].TranslationAt();
+                        Rotation rotation = _models[i].transformNodeChunks[j].RotationAt();
+
+                        string pos = worldPosition.X + " " + worldPosition.Y + " " + worldPosition.Z;
+
+                        size += Encoding.UTF8.GetByteCount(nTRN);
+                        size += 40;
+
+
+                        size += Encoding.UTF8.GetByteCount("_r");
+                        size += 4;
+                        size += Encoding.UTF8.GetByteCount(Convert.ToString((byte)rotation));
+                        size += 4 + Encoding.UTF8.GetByteCount("_t") + 4 + Encoding.UTF8.GetByteCount(pos);
+
+                    }
+                }
+            }
+
+            return size;
+        }
+
+        /// <summary>
+        /// Count the size of all nSHP chunks
+        /// </summary>
+        /// <returns></returns>
+        private int CountShapeChunkSize()
+        {
+            int size = 0;
+            for (int i = 0; i < _models.Count; i++)
+            {
+                for (int j = 1; j < _models[i].transformNodeChunks.Count; j++)
+                {
+                    int childId = _models[i].transformNodeChunks[j].childId;
+
+                    ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.FirstOrDefault(t => t.id == childId);
+                    if (shapeNode != null)
+                    {
+                        size += Encoding.UTF8.GetByteCount(nSHP) + 28;
+                    }
+                }
+            }
+            return size;
+        }
     }
 }
