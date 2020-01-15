@@ -16,7 +16,7 @@ namespace VoxMerger.Vox
         public VoxModel LoadModel(string absolutePath)
         {
             VoxModel output = new VoxModel();
-            output.colorUsed = new HashSet<byte>();
+            output.colorUsed = new HashSet<int>();
             var name = Path.GetFileNameWithoutExtension(absolutePath);
             _voxelCountLastXYZIChunk = 0;
             _logOutputFile = name + "-" + DateTime.Now.ToString("y-MM-d_HH.m.s") + ".txt";

@@ -152,6 +152,7 @@ namespace VoxMerger.Vox
             int SIZE = 0;
             int XYZI = 0;
 
+            Console.WriteLine("[LOG] Started to write all chunks...");
             using (var progressbar = new ProgressBar())
             {
                 int totalModels = CountTotalModels();
@@ -168,6 +169,7 @@ namespace VoxMerger.Vox
                     }
                 }
             }
+            Console.WriteLine("[LOG] Done.");
 
             int nTRNmain = WriteMainTranformNode(writer);
             int nGRP = WriteGroupChunk(writer);
@@ -411,35 +413,15 @@ namespace VoxMerger.Vox
             writer.Write(0);
 
             byteCount += Encoding.UTF8.GetByteCount(RGBA) + 8;
-            _usedColors = new List<Color>(256);
 
-            int usedIndexColor = 0;
-            int globalIndex = 0;
-            Console.WriteLine("[LOG] Started to create an optimized palette...");
-            using (ProgressBar progressBar = new ProgressBar())
+            for (int i = 0; i < _usedColors.Count; i++)
             {
-                for (int i = 0; i < _models.Count; i++)
-                {
-                    VoxModel model = _models[i];
-                    for (int j = 0; j < model.palette.Length; j++)
-                    {
-                        Color color = model.palette[j];
-                        if (_usedColors.Count < 256 && !_usedColors.Contains(color) && color != Color.Empty && _models[i].colorUsed.Contains((byte)j))
-                        {
-                            _usedIndexColors[usedIndexColor] = new KeyValuePair<int, int>(i, j);
-                            _usedColors.Add(color);
-                            writer.Write(color.R);
-                            writer.Write(color.G);
-                            writer.Write(color.B);
-                            writer.Write(color.A);
-                            byteCount += 4;
-                            usedIndexColor++;
-                        }
-
-                        globalIndex++;
-                        progressBar.Report(globalIndex / (float)(_models.Count * 256));
-                    }
-                }
+                Color color = _usedColors[i];
+                writer.Write(color.R);
+                writer.Write(color.G);
+                writer.Write(color.B);
+                writer.Write(color.A);
+                byteCount += 4;
             }
 
             for (int i = (256 - _usedColors.Count); i >= 1; i--)
@@ -496,35 +478,39 @@ namespace VoxMerger.Vox
         /// <returns></returns>
         private int CountMaterialChunkSize()
         {
-            List<Color> usedColor = new List<Color>();
-            Dictionary<int, KeyValuePair<int, int>> usedIndexColors = new Dictionary<int, KeyValuePair<int, int>>();
-
             int usedIndexColor = 0;
-
-            for (int i = 0; i < _models.Count; i++)
+            Console.WriteLine("[LOG] Started to create an optimized palette...");
+            int globalIndex = 0;
+            using (ProgressBar progressBar = new ProgressBar())
             {
-                VoxModel model = _models[i];
-                for (int j = 0; j < model.palette.Length; j++)
+                for (int i = 0; i < _models.Count; i++)
                 {
-                    Color color = model.palette[j];
-                    if (usedColor.Count < 256 && !usedColor.Contains(color) && color != Color.Empty && _models[i].colorUsed.Contains((byte)j))
+                    VoxModel model = _models[i];
+                    for (int j = 0; j < model.palette.Length; j++)
                     {
-                        usedIndexColors[usedIndexColor] = new KeyValuePair<int, int>(i, j);
-                        usedColor.Add(color);
-                        usedIndexColor++;
-                    }
+                        Color color = model.palette[j];
+                        if (_usedColors.Count < 256 && !_usedColors.Contains(color) && color != Color.Empty && _models[i].colorUsed.Contains(j))
+                        {
+                            _usedIndexColors[usedIndexColor] = new KeyValuePair<int, int>(i, j);
+                            _usedColors.Add(color);
+                            usedIndexColor++;
+                        }
 
+                        globalIndex++;
+                        progressBar.Report(globalIndex / (float)(_models.Count * 256));
+                    }
                 }
             }
+            Console.WriteLine("[LOG] Done.");
 
             int size = 0;
             for (int i = 0; i < 256; i++)
             {
                 size += Encoding.UTF8.GetByteCount(MATL) + 16;
 
-                if (usedIndexColors.ContainsKey(i))
+                if (_usedIndexColors.ContainsKey(i))
                 {
-                    KeyValuePair<int, int> modelIndex = usedIndexColors[i];
+                    KeyValuePair<int, int> modelIndex = _usedIndexColors[i];
                     size += _models[modelIndex.Key].materialChunks[modelIndex.Value - 1].properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
                 }
                 else
