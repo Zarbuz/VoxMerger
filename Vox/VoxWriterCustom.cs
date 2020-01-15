@@ -187,15 +187,16 @@ namespace VoxMerger.Vox
                     if (shapeNode != null)
                     {
                         int modelId = shapeNode.models[0].modelId + i;
+                        int uniqueIndex = modelId + (i * 2000); //Hack ...
 
-                        if (!modelIds.ContainsKey(modelId + i))
+                        if (!modelIds.ContainsKey(uniqueIndex))
                         {
-                            modelIds.Add(modelId + i, indexModel);
+                            modelIds.Add(uniqueIndex, indexModel);
                             indexModel++;
                         }
 
                         nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], index);
-                        nSHP += WriteShapeChunk(writer, index, modelIds[modelId + i]);
+                        nSHP += WriteShapeChunk(writer, index, modelIds[uniqueIndex]);
 
                         index++;
                     }
