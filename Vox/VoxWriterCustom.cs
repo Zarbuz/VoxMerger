@@ -141,7 +141,10 @@ namespace VoxMerger.Vox
                 if (_usedIndexColors.ContainsKey(i))
                 {
                     KeyValuePair<int, int> modelIndex = _usedIndexColors[i];
-                    MATL += WriteMaterialChunk(writer, _models[modelIndex.Key].materialChunks[modelIndex.Value - 1], i + 1);
+                    if (_models[modelIndex.Key].materialChunks.Count > modelIndex.Value - 1)
+                    {
+                        MATL += WriteMaterialChunk(writer, _models[modelIndex.Key].materialChunks[modelIndex.Value - 1], i + 1);
+                    }
                 }
                 else
                 {
@@ -449,7 +452,7 @@ namespace VoxMerger.Vox
             writer.Write(0); //Child Chunk Size (constant)
 
             writer.Write(index); //Id
-            writer.Write(12); //ReadDICT size
+            writer.Write(materialChunk.properties.Length); //ReadDICT size
 
             byteWritten += Encoding.UTF8.GetByteCount(MATL) + 16;
 
@@ -506,15 +509,20 @@ namespace VoxMerger.Vox
             int size = 0;
             for (int i = 0; i < 256; i++)
             {
-                size += Encoding.UTF8.GetByteCount(MATL) + 16;
 
                 if (_usedIndexColors.ContainsKey(i))
                 {
                     KeyValuePair<int, int> modelIndex = _usedIndexColors[i];
-                    size += _models[modelIndex.Key].materialChunks[modelIndex.Value - 1].properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
+                    if (_models[modelIndex.Key].materialChunks.Count > modelIndex.Value - 1)
+                    {
+                        size += Encoding.UTF8.GetByteCount(MATL) + 16;
+
+                        size += _models[modelIndex.Key].materialChunks[modelIndex.Value - 1].properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
+                    }
                 }
                 else
                 {
+                    size += Encoding.UTF8.GetByteCount(MATL) + 16;
                     size += _models[0].materialChunks[0].properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
                 }
             }
