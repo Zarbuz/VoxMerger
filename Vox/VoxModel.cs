@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using VoxMerger.Schematics.Tools;
+using VoxMerger.Tools;
 using VoxMerger.Vox.Chunks;
 
 namespace VoxMerger.Vox

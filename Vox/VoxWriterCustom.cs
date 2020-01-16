@@ -4,7 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
-using VoxMerger.Schematics.Tools;
+using VoxMerger.Tools;
 using VoxMerger.Utils;
 using VoxMerger.Vox.Chunks;
 

@@ -1,5 +1,5 @@
 ﻿using System.Linq;
-using VoxMerger.Schematics.Tools;
+using VoxMerger.Tools;
 
 namespace VoxMerger.Vox.Chunks
 {

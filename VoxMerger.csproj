@@ -73,11 +73,7 @@
     <Compile Include="Extensions\FctExtensions.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Schematics\Block.cs" />
-    <Compile Include="Schematics\RawSchematic.cs" />
-    <Compile Include="Schematics\Schematic.cs" />
-    <Compile Include="Schematics\SchematicConstants.cs" />
-    <Compile Include="Schematics\Tools\Vector3.cs" />
+    <Compile Include="Tools\Vector3.cs" />
     <Compile Include="Utils\ProgressBar.cs" />
     <Compile Include="Vox\Chunks\GroupNodeChunk.cs" />
     <Compile Include="Vox\Chunks\LayerChunk.cs" />
@@ -107,6 +103,9 @@
       <ProductName>.NET Framework 3.5 SP1</ProductName>
       <Install>false</Install>
     </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Schematics\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

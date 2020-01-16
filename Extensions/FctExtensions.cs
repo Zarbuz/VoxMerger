@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Drawing;
 using VoxMerger.Schematics;
-using VoxMerger.Schematics.Tools;
+using VoxMerger.Tools;
 
 namespace VoxMerger.Extensions
 {
