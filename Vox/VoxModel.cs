@@ -63,7 +63,17 @@ namespace VoxMerger.Vox
                     float.TryParse(data[2], out result.Z);
                 return result;
             }
-            set => items[0].Value = value.X + " " + value.Y + " " + value.Z;
+            set
+            {
+                if (items.Length == 0)
+                {
+                    items = new KeyValue[1];
+                    items[0] = new KeyValue();
+                    items[0].Key = "_t";
+                }
+
+                items[0].Value = value.X + " " + value.Y + " " + value.Z;
+            } 
         }
         }
     }
