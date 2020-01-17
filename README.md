@@ -1,4 +1,4 @@
-# Whats is VoxMerger ? 
+# What is VoxMerger ? 
 
 VoxMerger is a console program (Windows only) which can merge multiple MagicaVoxel scenes (.vox) into one. 
 
