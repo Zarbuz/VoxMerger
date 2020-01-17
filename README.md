@@ -1,6 +1,8 @@
 # What is VoxMerger ? 
 
-VoxMerger is a console program (Windows only) which can merge multiple MagicaVoxel scenes (.vox) into one. It keep only colors used from models and keep materials settings. If the sum of your colors in all your models is higher than 256, it will keep only the first 256 colors. So optimize your palette before merging. 
+VoxMerger is a console program (Windows only) which can merge multiple MagicaVoxel scenes (.vox) into one.
+
+VoxMerger keep only colors really used from your models and keep materials settings. If the sum of your colors in all your models is higher than 256, it will keep only the first 256 colors. So optimize your palette before merging. 
 
 # How to use it ? 
 
