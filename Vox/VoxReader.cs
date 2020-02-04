@@ -12,14 +12,15 @@ namespace VoxMerger.Vox
     {
         private int _voxelCountLastXYZIChunk = 0;
         protected string _logOutputFile;
-
-        public VoxModel LoadModel(string absolutePath)
+        private bool _writeLog;
+        public VoxModel LoadModel(string absolutePath, bool writeLog = false)
         {
             VoxModel output = new VoxModel();
             output.colorUsed = new HashSet<int>();
             var name = Path.GetFileNameWithoutExtension(absolutePath);
             _voxelCountLastXYZIChunk = 0;
             _logOutputFile = name + "-" + DateTime.Now.ToString("y-MM-d_HH.m.s") + ".txt";
+            _writeLog = writeLog;
             using (var reader = new BinaryReader(new MemoryStream(File.ReadAllBytes(absolutePath))))
             {
                 var head = new string(reader.ReadChars(4));
@@ -39,6 +40,25 @@ namespace VoxMerger.Vox
                 while (reader.BaseStream.Position != reader.BaseStream.Length)
                     ReadChunk(reader, output);
             }
+
+            //if (writeLog)
+            //{
+            //    List<int> allIds = output.groupNodeChunks.Select(t => t.id).ToList();
+            //    allIds.AddRange(output.transformNodeChunks.Select(t => t.id));
+            //    allIds.AddRange(output.shapeNodeChunks.Select(t => t.id));
+
+            //    var duplicates = allIds.GroupBy(x => x)
+            //        .Where(g => g.Count() > 1)
+            //        .Select(y => y.Key)
+            //        .ToList();
+
+            //    foreach (int id in duplicates)
+            //    {
+            //        Console.WriteLine(id);
+            //    }
+            //}
+
+
             if (output.palette == null)
                 output.palette = LoadDefaultPalette();
             return output;
@@ -153,7 +173,11 @@ namespace VoxMerger.Vox
                         break;
                 }
             }
-            WriteLogs(chunkName, chunkSize, childChunkSize, output);
+
+            if (_writeLog)
+            {
+                WriteLogs(chunkName, chunkSize, childChunkSize, output);
+            }
 
             //read child chunks
             using (var childReader = new BinaryReader(new MemoryStream(children)))

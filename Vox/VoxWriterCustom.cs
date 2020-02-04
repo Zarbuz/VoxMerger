@@ -14,7 +14,6 @@ namespace VoxMerger.Vox
     {
         private List<VoxModel> _models;
         private int _totalBlockCount;
-        private int _countSize;
         private List<Color> _usedColors = new List<Color>();
         private Dictionary<int, KeyValuePair<int, int>> _usedIndexColors = new Dictionary<int, KeyValuePair<int, int>>();
         public bool WriteModel(string absolutePath, List<VoxModel> models)
@@ -46,38 +45,39 @@ namespace VoxMerger.Vox
 
         private int CountChildrenSize()
         {
-            _countSize = CountTotalTransforms();
             _totalBlockCount = CountTotalBlocks();
             int totalModels = CountTotalModels();
             Console.WriteLine("[INFO] Total blocks: " + _totalBlockCount);
 
             int chunkSIZE = 24 * totalModels; //24 = 12 bytes for header and 12 bytes of content
             int chunkXYZI = (16 * totalModels) + _totalBlockCount * 4; //16 = 12 bytes for header and 4 for the voxel count + (number of voxels) * 4
-            int chunknTRNMain = 40; //40 = 
-            int chunknGRP = 24 + _countSize * 4;
+            int chunknGRP = CountGroupChunkSize();
             int chunknTRN = CountTransformChunkSize();
             int chunknSHP = CountShapeChunkSize();
             int chunkRGBA = 1024 + 12;
             int chunkMATL = CountMaterialChunkSize();
-
+            int chunkMnTRN = 40;
+            int chunkMnGRP = CountMainGroupChunkSize();
 
             Console.WriteLine("[LOG] Chunk RGBA: " + chunkRGBA);
             Console.WriteLine("[LOG] Chunk MATL: " + chunkMATL);
             Console.WriteLine("[LOG] Chunk SIZE: " + chunkSIZE);
             Console.WriteLine("[LOG] Chunk XYZI: " + chunkXYZI);
-            Console.WriteLine("[LOG] Chunk nTRN Main: " + chunknTRNMain);
             Console.WriteLine("[LOG] Chunk nGRP: " + chunknGRP);
             Console.WriteLine("[LOG] Chunk nTRN: " + chunknTRN);
             Console.WriteLine("[LOG] Chunk nSHP: " + chunknSHP);
+            Console.WriteLine("[LOG] Chunk MnTRN: " + chunkMnTRN);
+            Console.WriteLine("[LOG] Chunk MnGRP: " + chunkMnGRP);
 
             int childrenChunkSize = chunkSIZE; //SIZE CHUNK
             childrenChunkSize += chunkXYZI; //XYZI CHUNK
-            childrenChunkSize += chunknTRNMain; //First nTRN CHUNK (constant)
             childrenChunkSize += chunknGRP; //nGRP CHUNK
             childrenChunkSize += chunknTRN; //nTRN CHUNK
             childrenChunkSize += chunknSHP;
             childrenChunkSize += chunkRGBA;
             childrenChunkSize += chunkMATL;
+            childrenChunkSize += chunkMnTRN;
+            childrenChunkSize += chunkMnGRP;
 
             return childrenChunkSize;
         }
@@ -114,7 +114,7 @@ namespace VoxMerger.Vox
 
         private int CountTotalTransforms()
         {
-            return _models.Sum(t => t.transformNodeChunks.Count - 1);
+            return _models.Sum(t => t.transformNodeChunks.Count);
         }
 
         private int CountTotalModels()
@@ -122,7 +122,7 @@ namespace VoxMerger.Vox
             return _models.Sum(t => t.voxelFrames.Count);
         }
 
-        private int CountTotalRegions()
+        private int CountTotalGroups()
         {
             return _models.Sum(t => t.groupNodeChunks.Count);
         }
@@ -155,7 +155,7 @@ namespace VoxMerger.Vox
             int SIZE = 0;
             int XYZI = 0;
 
-            Console.WriteLine("[LOG] Started to write all chunks...");
+            Console.WriteLine("[LOG] Step [1/2]: Started to write SIZE and XYZI...");
             using (var progressbar = new ProgressBar())
             {
                 int totalModels = CountTotalModels();
@@ -174,38 +174,78 @@ namespace VoxMerger.Vox
             }
             Console.WriteLine("[LOG] Done.");
 
-            int nTRNmain = WriteMainTranformNode(writer);
-            int nGRP = WriteGroupChunk(writer);
-
-            int index = 0;
-            Dictionary<int, int> modelIds = new Dictionary<int, int>();
-            int indexModel = 0;
+            int nGRP = 0;
             int nTRN = 0;
             int nSHP = 0;
+
+            int mnTRN = WriteMainTransformChunk(writer);
+
+            List<int> mainGroupIds = new List<int>();
             for (int i = 0; i < _models.Count; i++)
             {
-                for (int j = 1; j < _models[i].transformNodeChunks.Count; j++)
+                int transformId = _models[i].transformNodeChunks[0].id;
+                int transformIndexUnique = transformId + ((i + 1) * 2000 + 2); //Hack
+
+                mainGroupIds.Add(transformIndexUnique);
+            }
+
+            int mnGRP = WriteMainGroupChunk(writer, mainGroupIds);
+
+            Console.WriteLine("[LOG] Step [2/2]: Started to write nTRN, nGRP and nSHP chunks...");
+            using (var progressbar = new ProgressBar())
+            {
+                int indexProgression = 0;
+                int totalTransform = CountTotalTransforms();
+                Dictionary<int, int> modelIds = new Dictionary<int, int>();
+                int indexModel = 0;
+                for (int i = 0; i < _models.Count; i++)
                 {
-                    int childId = _models[i].transformNodeChunks[j].childId;
-
-                    ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.FirstOrDefault(t => t.id == childId);
-                    if (shapeNode != null)
+                    for (int j = 0; j < _models[i].transformNodeChunks.Count; j++)
                     {
-                        int modelId = shapeNode.models[0].modelId + i;
-                        int uniqueIndex = modelId + (i * 2000); //Hack ...
+                        int childId = _models[i].transformNodeChunks[j].childId;
 
-                        if (!modelIds.ContainsKey(uniqueIndex))
+                        int transformId = _models[i].transformNodeChunks[j].id;
+                        int transformIndexUnique = transformId + ((i + 1) * 2000) + 2; //Hack
+
+                        ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.FirstOrDefault(t => t.id == childId);
+                        if (shapeNode != null)
                         {
-                            modelIds.Add(uniqueIndex, indexModel);
-                            indexModel++;
+                            int modelId = shapeNode.models[0].modelId + i;
+                            int modelIndexUnique = modelId + (i * 2000); //Hack ...
+
+                            if (!modelIds.ContainsKey(modelIndexUnique))
+                            {
+                                modelIds.Add(modelIndexUnique, indexModel);
+                                indexModel++;
+                            }
+
+                            int shapeId = shapeNode.id;
+                            int shapeIndexUnique = shapeId + ((i + 1) * 2000) + 2; //Hack
+
+                            nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], transformIndexUnique, shapeIndexUnique);
+                            nSHP += WriteShapeChunk(writer, shapeIndexUnique, modelIds[modelIndexUnique]);
+                        }
+                        else
+                        {
+                            GroupNodeChunk groupNode = _models[i].groupNodeChunks.FirstOrDefault(t => t.id == childId);
+
+                            int groupId = groupNode.id;
+                            int groupUniqueIndex = groupId + ((i + 1) * 2000) + 2; //Hack ...
+
+                            List<int> childIds = groupNode.childIds.ToList();
+                            for (int index = 0; index < childIds.Count; index++)
+                            {
+                                childIds[index] += ((i + 1) * 2000 + 2);
+                            }
+
+                            nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], transformIndexUnique, groupUniqueIndex);
+                            nGRP += WriteGroupChunk(writer, groupUniqueIndex, childIds);
+
                         }
 
-                        nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], index);
-                        nSHP += WriteShapeChunk(writer, index, modelIds[uniqueIndex]);
-
-                        index++;
+                        progressbar.Report(indexProgression / (float)totalTransform);
+                        indexProgression++;
                     }
-
                 }
             }
 
@@ -213,12 +253,57 @@ namespace VoxMerger.Vox
             Console.WriteLine("[LOG] Written MATL: " + MATL);
             Console.WriteLine("[LOG] Written SIZE: " + SIZE);
             Console.WriteLine("[LOG] Written XYZI: " + XYZI);
-            Console.WriteLine("[LOG] Written main nTRN: " + nTRNmain);
             Console.WriteLine("[LOG] Written nGRP: " + nGRP);
             Console.WriteLine("[LOG] Written nTRN: " + nTRN);
             Console.WriteLine("[LOG] Written nSHP: " + nSHP);
+            Console.WriteLine("[LOG] Written mnTRN: " + mnTRN);
+            Console.WriteLine("[LOG] Written mnGRP: " + mnGRP);
 
-            byteWritten = RGBA + MATL + SIZE + XYZI + nTRNmain + nGRP + nTRN + nSHP;
+            byteWritten = RGBA + MATL + SIZE + XYZI + nGRP + nTRN + nSHP + mnTRN + mnGRP;
+            return byteWritten;
+        }
+
+        /// <summary>
+        /// Write the main nTRN chunk
+        /// </summary>
+        /// <param name="writer"></param>
+        /// <returns></returns>
+        private int WriteMainTransformChunk(BinaryWriter writer)
+        {
+            int byteWritten = 0;
+            writer.Write(Encoding.UTF8.GetBytes(nTRN));
+            writer.Write(28); //Main nTRN has always a size of 28 bytes
+            writer.Write(0); //Child nTRN chunk size
+            writer.Write(0); //ID of nTRN
+            writer.Write(0); //ReadDICT size for attributes
+            writer.Write(1); //Child ID
+            writer.Write(-1); //Reserved ID
+            writer.Write(0); //Layer ID
+            writer.Write(1); //Read Array Size
+            writer.Write(0); //ReadDICT size
+
+            byteWritten += Encoding.UTF8.GetByteCount(nTRN) + 36;
+            return byteWritten;
+        }
+
+        private int WriteMainGroupChunk(BinaryWriter writer, List<int> ids)
+        {
+            int byteWritten = 0;
+            writer.Write(Encoding.UTF8.GetBytes(nGRP));
+            writer.Write(12 + (4 * (ids.Count))); //nGRP chunk size
+            writer.Write(0); //Child nGRP chunk size
+            writer.Write(1); //ID of nGRP
+            writer.Write(0); //Read DICT size for attributes (none)
+            writer.Write(ids.Count);
+            byteWritten += Encoding.UTF8.GetByteCount(nGRP) + 20;
+
+            for (int i = 0; i < ids.Count; i++)
+            {
+                writer.Write(ids[i]); //Write the ID of child group
+                byteWritten += 4;
+            }
+
+
             return byteWritten;
         }
 
@@ -227,7 +312,7 @@ namespace VoxMerger.Vox
         /// </summary>
         /// <param name="writer"></param>
         /// <param name="index"></param>
-        private int WriteTransformChunk(BinaryWriter writer, TransformNodeChunk transformNode, int index)
+        private int WriteTransformChunk(BinaryWriter writer, TransformNodeChunk transformNode, int id, int childId)
         {
             int byteWritten = 0;
             writer.Write(Encoding.UTF8.GetBytes(nTRN));
@@ -239,9 +324,9 @@ namespace VoxMerger.Vox
             writer.Write(48 + Encoding.UTF8.GetByteCount(pos)
                             + Encoding.UTF8.GetByteCount(Convert.ToString((byte)transformNode.RotationAt()))); //nTRN chunk size
             writer.Write(0); //nTRN child chunk size
-            writer.Write(2 * index + 2); //ID
+            writer.Write(id); //ID
             writer.Write(0); //ReadDICT size for attributes (none)
-            writer.Write(2 * index + 3);//Child ID
+            writer.Write(childId);//Child ID
             writer.Write(-1); //Reserved ID
             writer.Write(transformNode.layerId); //Layer ID
             writer.Write(1); //Read Array Size
@@ -274,13 +359,13 @@ namespace VoxMerger.Vox
         /// </summary>
         /// <param name="writer"></param>
         /// <param name="index"></param>
-        private int WriteShapeChunk(BinaryWriter writer, int index, int indexModel)
+        private int WriteShapeChunk(BinaryWriter writer, int id, int indexModel)
         {
             int byteWritten = 0;
             writer.Write(Encoding.UTF8.GetBytes(nSHP));
             writer.Write(20); //nSHP chunk size
             writer.Write(0); //nSHP child chunk size
-            writer.Write(2 * index + 3); //ID
+            writer.Write(id); //ID
             writer.Write(0);
             writer.Write(1);
             writer.Write(indexModel);
@@ -290,47 +375,24 @@ namespace VoxMerger.Vox
             return byteWritten;
         }
 
-
-        /// <summary>
-        /// Write the main trande node chunk
-        /// </summary>
-        /// <param name="writer"></param>
-        private int WriteMainTranformNode(BinaryWriter writer)
-        {
-            int byteWritten = 0;
-            writer.Write(Encoding.UTF8.GetBytes(nTRN));
-            writer.Write(28); //Main nTRN has always a 28 bytes size
-            writer.Write(0); //Child nTRN chunk size
-            writer.Write(0); // ID of nTRN
-            writer.Write(0); //ReadDICT size for attributes (none)
-            writer.Write(1); //Child ID
-            writer.Write(-1); //Reserved ID
-            writer.Write(-1); //Layer ID
-            writer.Write(1); //Read Array Size
-            writer.Write(0); //ReadDICT size
-
-            byteWritten += Encoding.UTF8.GetByteCount(nTRN) + 36;
-            return byteWritten;
-        }
-
         /// <summary>
         /// Write nGRP chunk
         /// </summary>
         /// <param name="writer"></param>
-        private int WriteGroupChunk(BinaryWriter writer)
+        private int WriteGroupChunk(BinaryWriter writer, int id, List<int> ids)
         {
             int byteWritten = 0;
             writer.Write(Encoding.UTF8.GetBytes(nGRP));
-            writer.Write(16 + (4 * (_countSize - 1))); //nGRP chunk size
+            writer.Write(12 + (4 * (ids.Count))); //nGRP chunk size
             writer.Write(0); //Child nGRP chunk size
-            writer.Write(1); //ID of nGRP
+            writer.Write(id); //ID of nGRP
             writer.Write(0); //Read DICT size for attributes (none)
-            writer.Write(_countSize);
+            writer.Write(ids.Count);
             byteWritten += Encoding.UTF8.GetByteCount(nGRP) + 20;
 
-            for (int i = 0; i < _countSize; i++)
+            for (int i = 0; i < ids.Count; i++)
             {
-                writer.Write((2 * i) + 2); //id for childrens (start at 2, increment by 2)
+                writer.Write(ids[i]); //Write the ID of child group
                 byteWritten += 4;
             }
 
@@ -540,38 +602,21 @@ namespace VoxMerger.Vox
             int size = 0;
             for (int i = 0; i < _models.Count; i++)
             {
-                for (int j = 1; j < _models[i].transformNodeChunks.Count; j++)
+                for (int j = 0; j < _models[i].transformNodeChunks.Count; j++)
                 {
-                    int childId = _models[i].transformNodeChunks[j].childId;
+                    Vector3 worldPosition = _models[i].transformNodeChunks[j].TranslationAt();
+                    Rotation rotation = _models[i].transformNodeChunks[j].RotationAt();
 
-                    ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.FirstOrDefault(t => t.id == childId);
-                    if (shapeNode != null)
-                    {
-                        Vector3 worldPosition = _models[i].transformNodeChunks[j].TranslationAt();
-                        Rotation rotation = _models[i].transformNodeChunks[j].RotationAt();
+                    string pos = worldPosition.X + " " + worldPosition.Y + " " + worldPosition.Z;
 
-                        string pos = worldPosition.X + " " + worldPosition.Y + " " + worldPosition.Z;
-
-                        size += Encoding.UTF8.GetByteCount(nTRN);
-                        size += 40;
+                    size += Encoding.UTF8.GetByteCount(nTRN);
+                    size += 40;
 
 
-                        size += Encoding.UTF8.GetByteCount("_r");
-                        size += 4;
-                        size += Encoding.UTF8.GetByteCount(Convert.ToString((byte)rotation));
-                        size += 4 + Encoding.UTF8.GetByteCount("_t") + 4 + Encoding.UTF8.GetByteCount(pos);
-
-                    }
-                    else
-                    {
-                        GroupNodeChunk groupNode = _models[i].groupNodeChunks.First(t => t.id == childId);
-                        foreach (int childGroupId in groupNode.childIds)
-                        {
-                            TransformNodeChunk transformNode = _models[i].transformNodeChunks.First(t => t.id == childGroupId);
-                            Vector3 pos = transformNode.frameAttributes[0]._t;
-                            transformNode.frameAttributes[0]._t = pos + _models[i].transformNodeChunks[j].frameAttributes[0]._t;
-                        }
-                    }
+                    size += Encoding.UTF8.GetByteCount("_r");
+                    size += 4;
+                    size += Encoding.UTF8.GetByteCount(Convert.ToString((byte)rotation));
+                    size += 4 + Encoding.UTF8.GetByteCount("_t") + 4 + Encoding.UTF8.GetByteCount(pos);
                 }
             }
 
@@ -587,7 +632,7 @@ namespace VoxMerger.Vox
             int size = 0;
             for (int i = 0; i < _models.Count; i++)
             {
-                for (int j = 1; j < _models[i].transformNodeChunks.Count; j++)
+                for (int j = 0; j < _models[i].transformNodeChunks.Count; j++)
                 {
                     int childId = _models[i].transformNodeChunks[j].childId;
 
@@ -599,6 +644,39 @@ namespace VoxMerger.Vox
                 }
             }
             return size;
+        }
+
+
+        /// <summary>
+        /// Count the size of all nGRP chunks
+        /// </summary>
+        /// <returns></returns>
+        private int CountGroupChunkSize()
+        {
+            int byteWritten = 0;
+            for (int i = 0; i < _models.Count; i++)
+            {
+                for (int j = 0; j < _models[i].groupNodeChunks.Count; j++)
+                {
+                    byteWritten += Encoding.UTF8.GetByteCount(nGRP) + 20;
+                    byteWritten += _models[i].groupNodeChunks[j].childIds.ToList().Sum(id => 4);
+                }
+            }
+
+            return byteWritten;
+        }
+
+        /// <summary>
+        /// Count the size of the main nGRP chunk
+        /// </summary>
+        /// <returns></returns>
+        private int CountMainGroupChunkSize()
+        {
+            int byteWritten = 0;
+            byteWritten += Encoding.UTF8.GetByteCount(nGRP) + 20;
+            byteWritten += _models.Sum(id => 4);
+
+            return byteWritten;
         }
     }
 }
