@@ -206,7 +206,7 @@ namespace VoxMerger.Vox
                         int childId = _models[i].transformNodeChunks[j].childId;
 
                         int transformId = _models[i].transformNodeChunks[j].id;
-                        int transformIndexUnique = transformId + ((i) /** 2000*/) + 2; //Hack
+                        int transformIndexUnique = transformId + ((i) * 2000) + 2; //Hack
 
                         ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.FirstOrDefault(t => t.id == childId);
                         if (shapeNode != null)
@@ -221,14 +221,16 @@ namespace VoxMerger.Vox
                             }
 
                             int shapeId = shapeNode.id;
-                            int shapeIndexUnique = shapeId + ((i) /** 2000*/) + 2; //Hack
+                            int shapeIndexUnique = shapeId + ((i) * 2000) + 2; //Hack
+
+                            nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], transformIndexUnique, shapeIndexUnique);
+
                             if (!shapeIds.Contains(shapeIndexUnique))
                             {
                                 shapeIds.Add(shapeIndexUnique);
                                 nSHP += WriteShapeChunk(writer, shapeIndexUnique, modelIds[modelIndexUnique]);
                             }
 
-                            nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], transformIndexUnique, shapeIndexUnique);
 
                         }
                         else
@@ -236,12 +238,12 @@ namespace VoxMerger.Vox
                             GroupNodeChunk groupNode = _models[i].groupNodeChunks.FirstOrDefault(t => t.id == childId);
 
                             int groupId = groupNode.id;
-                            int groupUniqueIndex = groupId + ((i ) /** 2000*/) + 2; //Hack ...
+                            int groupUniqueIndex = groupId + ((i ) * 2000) + 2; //Hack ...
 
                             List<int> childIds = groupNode.childIds.ToList();
                             for (int index = 0; index < childIds.Count; index++)
                             {
-                                childIds[index] += ((i) /** 2000*/ + 2);
+                                childIds[index] += ((i) * 2000 + 2);
                             }
 
                             nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], transformIndexUnique, groupUniqueIndex);
