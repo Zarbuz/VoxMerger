@@ -13,7 +13,7 @@ namespace VoxMerger.Vox
         private int _voxelCountLastXYZIChunk = 0;
         protected string _logOutputFile;
         private bool _writeLog;
-        public VoxModel LoadModel(string absolutePath, bool writeLog = false)
+        public VoxModel LoadModel(string absolutePath, bool writeLog = true)
         {
             VoxModel output = new VoxModel();
             output.colorUsed = new HashSet<int>();
@@ -41,22 +41,22 @@ namespace VoxMerger.Vox
                     ReadChunk(reader, output);
             }
 
-            //if (writeLog)
-            //{
-            //    List<int> allIds = output.groupNodeChunks.Select(t => t.id).ToList();
-            //    allIds.AddRange(output.transformNodeChunks.Select(t => t.id));
-            //    allIds.AddRange(output.shapeNodeChunks.Select(t => t.id));
+            if (writeLog)
+            {
+                List<int> allIds = output.groupNodeChunks.Select(t => t.id).ToList();
+                allIds.AddRange(output.transformNodeChunks.Select(t => t.id));
+                allIds.AddRange(output.shapeNodeChunks.Select(t => t.id));
 
-            //    var duplicates = allIds.GroupBy(x => x)
-            //        .Where(g => g.Count() > 1)
-            //        .Select(y => y.Key)
-            //        .ToList();
+                List<int> duplicates = allIds.GroupBy(x => x)
+                    .Where(g => g.Count() > 1)
+                    .Select(y => y.Key)
+                    .ToList();
 
-            //    foreach (int id in duplicates)
-            //    {
-            //        Console.WriteLine(id);
-            //    }
-            //}
+                foreach (int id in duplicates)
+                {
+                    Console.WriteLine("[ERROR] Duplicate ID: " + id);
+                }
+            }
 
 
             if (output.palette == null)
