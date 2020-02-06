@@ -13,7 +13,7 @@ namespace VoxMerger.Vox
         private int _voxelCountLastXYZIChunk = 0;
         protected string _logOutputFile;
         private bool _writeLog;
-        public VoxModel LoadModel(string absolutePath, bool writeLog = true)
+        public VoxModel LoadModel(string absolutePath, bool writeLog = false, bool debug = false)
         {
             VoxModel output = new VoxModel();
             output.colorUsed = new HashSet<int>();
@@ -41,27 +41,69 @@ namespace VoxMerger.Vox
                     ReadChunk(reader, output);
             }
 
-            if (writeLog)
+            if (debug)
             {
-                List<int> allIds = output.groupNodeChunks.Select(t => t.id).ToList();
-                allIds.AddRange(output.transformNodeChunks.Select(t => t.id));
-                allIds.AddRange(output.shapeNodeChunks.Select(t => t.id));
-
-                List<int> duplicates = allIds.GroupBy(x => x)
-                    .Where(g => g.Count() > 1)
-                    .Select(y => y.Key)
-                    .ToList();
-
-                foreach (int id in duplicates)
-                {
-                    Console.WriteLine("[ERROR] Duplicate ID: " + id);
-                }
+                CheckDuplicateIds(output);
+                CheckDuplicateChildGroupIds(output);
+                CheckTransformIdNotInGroup(output);
+                Console.ReadKey();
             }
 
 
             if (output.palette == null)
                 output.palette = LoadDefaultPalette();
             return output;
+        }
+
+        private void CheckDuplicateIds(VoxModel output)
+        {
+            List<int> allIds = output.groupNodeChunks.Select(t => t.id).ToList();
+            allIds.AddRange(output.transformNodeChunks.Select(t => t.id));
+            allIds.AddRange(output.shapeNodeChunks.Select(t => t.id));
+
+            List<int> duplicates = allIds.GroupBy(x => x)
+                .Where(g => g.Count() > 1)
+                .Select(y => y.Key)
+                .ToList();
+
+            foreach (int id in duplicates)
+            {
+                Console.WriteLine("[ERROR] Duplicate ID: " + id);
+            }
+        }
+
+        private void CheckDuplicateChildGroupIds(VoxModel output)
+        {
+            List<int> childIds = output.groupNodeChunks.SelectMany(t => t.childIds).ToList();
+            List<int> duplicates = childIds.GroupBy(x => x)
+                .Where(g => g.Count() > 1)
+                .Select(y => y.Key)
+                .ToList();
+
+            foreach (int id in duplicates)
+            {
+                Console.WriteLine("[ERROR] Duplicate child group ID: " + id);
+            }
+        }
+
+        private void CheckTransformIdNotInGroup(VoxModel output)
+        {
+            List<int> ids = output.transformNodeChunks.Select(t => t.id).ToList();
+            List<int> childIds = output.groupNodeChunks.SelectMany(t => t.childIds).ToList();
+
+            List<int> empty = new List<int>();
+            foreach (int id in ids)
+            {
+                if (childIds.IndexOf(id) == -1 && id != 0)
+                {
+                    empty.Add(id);
+                }
+            }
+
+            foreach (int id in empty)
+            {
+                Console.WriteLine("[ERROR] Transform ID never called in any group: " + id);
+            }
         }
 
         private Color[] LoadDefaultPalette()

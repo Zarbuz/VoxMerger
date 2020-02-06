@@ -14,22 +14,26 @@ namespace VoxMerger
             string inputFolder = string.Empty;
             string outputFile = string.Empty;
             bool shopHelp = false;
+            bool debug = false;
+            bool logs = false;
             OptionSet options = new OptionSet()
             {
                 {"i|input=", "input folder", v => inputFolder = v},
                 {"o|output=", "output file", v => outputFile = v},
                 {"h|help", "show this message and exit", v => shopHelp = v != null},
+                {"d|debug", "enable debug verification", v => debug = v != null },
+                {"l|log", "enable writing logs", v =>  logs = v != null}
             };
 
             List<string> extra = options.Parse(args);
             CheckHelp(options, shopHelp);
             CheckArguments(inputFolder, outputFile);
-            ProcessFolder(inputFolder, outputFile);
+            ProcessFolder(inputFolder, outputFile, logs, debug);
 
         }
 
 
-        private static void ProcessFolder(string inputFolder, string outputFile)
+        private static void ProcessFolder(string inputFolder, string outputFile, bool logs, bool debug)
         {
             string folder = Path.GetFullPath(inputFolder);
 
@@ -53,12 +57,12 @@ namespace VoxMerger
             if (outputFile.Contains(".vox"))
             {
                 writer.WriteModel(outputFile, models);
-                reader.LoadModel(outputFile, true);
+                reader.LoadModel(outputFile, logs, debug);
             }
             else
             {
                 writer.WriteModel(outputFile + ".vox", models);
-                reader.LoadModel(outputFile + ".vox", true);
+                reader.LoadModel(outputFile + ".vox", logs, debug);
             }
         }
 

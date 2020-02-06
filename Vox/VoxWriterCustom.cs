@@ -36,6 +36,7 @@ namespace VoxMerger.Vox
                 if (byteWritten != childrenSize)
                 {
                     Console.WriteLine("[LOG] Children size and bytes written isn't the same! Vox is corrupted!");
+                    Console.ReadKey();
                     return false;
                 }
             }
@@ -179,14 +180,15 @@ namespace VoxMerger.Vox
             int nSHP = 0;
 
             int mnTRN = WriteMainTransformChunk(writer);
-
+            int indexChunk = 2;
             List<int> mainGroupIds = new List<int>();
-            for (int i = 0; i < _models.Count; i++)
-            {
-                int transformId = _models[i].transformNodeChunks[0].id;
-                int transformIndexUnique = transformId + ((i + 1) * 2000 + 2); //Hack
+            mainGroupIds.Add(2);
 
-                mainGroupIds.Add(transformIndexUnique);
+            for (int i = 0; i < _models.Count - 1; i++)
+            {
+                int max = _models[i].transformNodeChunks.Max(t => t.id);
+                int transformId = max + (max % 2 == 0 ? 2 : 1) + mainGroupIds.Last();
+                mainGroupIds.Add(transformId);
             }
 
             int mnGRP = WriteMainGroupChunk(writer, mainGroupIds);
@@ -197,17 +199,18 @@ namespace VoxMerger.Vox
                 int indexProgression = 0;
                 int totalTransform = CountTotalTransforms();
                 Dictionary<int, int> modelIds = new Dictionary<int, int>();
-                List<int> shapeIds = new List<int>();
+                Dictionary<int, int> shapeIds = new Dictionary<int, int>();
                 int indexModel = 0;
+                mainGroupIds.Clear();
+                mainGroupIds.Add(2);
                 for (int i = 0; i < _models.Count; i++)
                 {
                     for (int j = 0; j < _models[i].transformNodeChunks.Count; j++)
                     {
                         int childId = _models[i].transformNodeChunks[j].childId;
 
-                        int transformId = _models[i].transformNodeChunks[j].id;
-                        int transformIndexUnique = transformId + ((i + 1) * 2000) + 2; //Hack
-
+                        int transformIndexUnique = indexChunk++;
+                       
                         ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.FirstOrDefault(t => t.id == childId);
                         if (shapeNode != null)
                         {
@@ -220,28 +223,26 @@ namespace VoxMerger.Vox
                                 indexModel++;
                             }
 
-                            int shapeId = shapeNode.id;
-                            int shapeIndexUnique = shapeId + ((i + 1) * 2000) + 2; //Hack
+                            int shapeIndexUnique = (shapeNode.id + ((i + 1) * 2000) + 2); //Hack
+                            nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], transformIndexUnique,  shapeIds.ContainsKey(shapeIndexUnique) ? shapeIds[shapeIndexUnique] : indexChunk);
 
-                            nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], transformIndexUnique, shapeIndexUnique);
-
-                            if (!shapeIds.Contains(shapeIndexUnique))
+                            if (!shapeIds.ContainsKey(shapeIndexUnique))
                             {
-                                shapeIds.Add(shapeIndexUnique);
-                                nSHP += WriteShapeChunk(writer, shapeIndexUnique, modelIds[modelIndexUnique]);
+                                shapeIds.Add(shapeIndexUnique, indexChunk);
+                                nSHP += WriteShapeChunk(writer, indexChunk, modelIds[modelIndexUnique]);
+                                indexChunk++;
                             }
                         }
                         else
                         {
                             GroupNodeChunk groupNode = _models[i].groupNodeChunks.FirstOrDefault(t => t.id == childId);
 
-                            int groupId = groupNode.id;
-                            int groupUniqueIndex = groupId + ((i + 1) * 2000) + 2; //Hack ...
+                            int groupUniqueIndex = indexChunk++;
 
                             List<int> childIds = groupNode.childIds.ToList();
                             for (int index = 0; index < childIds.Count; index++)
                             {
-                                childIds[index] += ((i + 1) * 2000 + 2);
+                                childIds[index] += mainGroupIds.Last();
                             }
 
                             nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], transformIndexUnique, groupUniqueIndex);
@@ -252,6 +253,9 @@ namespace VoxMerger.Vox
                         progressbar.Report(indexProgression / (float)totalTransform);
                         indexProgression++;
                     }
+
+                    int max = _models[i].transformNodeChunks.Max(t => t.id);
+                    mainGroupIds.Add( max + (max % 2 == 0 ? 2 : 1) + mainGroupIds.Last());
                 }
             }
 
@@ -636,21 +640,17 @@ namespace VoxMerger.Vox
         private int CountShapeChunkSize()
         {
             int size = 0;
-            List<int> shapeIds =new List<int>();
+            List<int> shapeIds = new List<int>();
             for (int i = 0; i < _models.Count; i++)
             {
-                for (int j = 0; j < _models[i].transformNodeChunks.Count; j++)
+                for (int j = 0; j < _models[i].shapeNodeChunks.Count; j++)
                 {
-                    int childId = _models[i].transformNodeChunks[j].childId;
-
-                    ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.FirstOrDefault(t => t.id == childId);
-                    if (shapeNode != null)
+                    ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks[j];
+                    int id = (shapeNode.id + (i * 2000) + 2);
+                    if (!shapeIds.Contains(id))
                     {
-                        if (!shapeIds.Contains(shapeNode.id + (i * 2000) + 2))
-                        {
-                            shapeIds.Add(shapeNode.id + (i * 2000) + 2);
-                            size += Encoding.UTF8.GetByteCount(nSHP) + 28;
-                        }
+                        shapeIds.Add(id);
+                        size += Encoding.UTF8.GetByteCount(nSHP) + 28;
                     }
                 }
             }
