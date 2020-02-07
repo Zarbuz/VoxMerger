@@ -12,5 +12,4 @@ VoxMerger keep only colors really used from your models and keep materials setti
 - [INPUT] refer to a folder filepath (mandatory)
 - [OUTPUT] refer to the destination path (mandatory)
 
-
-
+![](img/snap2020-02-06-21-30-14.png)
