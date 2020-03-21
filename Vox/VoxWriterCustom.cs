@@ -147,7 +147,7 @@ namespace VoxMerger.Vox
                         MATL += WriteMaterialChunk(writer, _models[modelIndex.Key].materialChunks[modelIndex.Value - 1], i + 1);
                     }
                 }
-                else
+                else if (_models[0].materialChunks.Count > 0)
                 {
                     MATL += WriteMaterialChunk(writer, _models[0].materialChunks[0], i + 1);
                 }
@@ -581,7 +581,6 @@ namespace VoxMerger.Vox
             int size = 0;
             for (int i = 0; i < 256; i++)
             {
-
                 if (_usedIndexColors.ContainsKey(i))
                 {
                     KeyValuePair<int, int> modelIndex = _usedIndexColors[i];
@@ -594,9 +593,12 @@ namespace VoxMerger.Vox
                 }
                 else
                 {
-                    size += Encoding.UTF8.GetByteCount(MATL) + 16;
-                    size += _models[0].materialChunks[0].properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
-                }
+					if (_models[0].materialChunks.Count > 0)
+					{
+						size += Encoding.UTF8.GetByteCount(MATL) + 16;
+						size += _models[0].materialChunks[0].properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
+					}
+				}
             }
 
             return size;
