@@ -191,6 +191,9 @@ namespace VoxMerger.Vox
                 mainGroupIds.Add(transformId);
             }
 
+            int totalGroups = _models.Sum(group => group.groupNodeChunks.Count);
+            int countGroup = 0;
+
             int mnGRP = WriteMainGroupChunk(writer, mainGroupIds);
 
             Console.WriteLine("[LOG] Step [2/2]: Started to write nTRN, nGRP and nSHP chunks...");
@@ -198,13 +201,17 @@ namespace VoxMerger.Vox
             {
                 int indexProgression = 0;
                 int totalTransform = CountTotalTransforms();
+               
                 Dictionary<int, int> modelIds = new Dictionary<int, int>();
                 Dictionary<int, int> shapeIds = new Dictionary<int, int>();
+                Dictionary<int, List<int>> groupIds = new Dictionary<int, List<int>>();
                 int indexModel = 0;
                 mainGroupIds.Clear();
                 mainGroupIds.Add(2);
                 for (int i = 0; i < _models.Count; i++)
                 {
+	                groupIds[i] = new List<int>();
+
                     for (int j = 0; j < _models[i].transformNodeChunks.Count; j++)
                     {
                         int childId = _models[i].transformNodeChunks[j].childId;
@@ -237,16 +244,24 @@ namespace VoxMerger.Vox
                         {
                             GroupNodeChunk groupNode = _models[i].groupNodeChunks.FirstOrDefault(t => t.id == childId);
 
-                            int groupUniqueIndex = indexChunk++;
-
-                            List<int> childIds = groupNode.childIds.ToList();
-                            for (int index = 0; index < childIds.Count; index++)
+                            if (groupNode != null)
                             {
-                                childIds[index] += mainGroupIds.Last();
-                            }
+	                            if (!groupIds[i].Contains(groupNode.id))
+	                            {
+                                    groupIds[i].Add(groupNode.id);
+                                    int groupUniqueIndex = indexChunk++;
+                                    countGroup++;
+                                    List<int> childIds = groupNode.childIds.ToList();
+                                    for (int index = 0; index < childIds.Count; index++)
+                                    {
+	                                    childIds[index] += mainGroupIds.Last();
+                                    }
 
-                            nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j], transformIndexUnique, groupUniqueIndex);
-                            nGRP += WriteGroupChunk(writer, groupUniqueIndex, childIds);
+                                    nTRN += WriteTransformChunk(writer, _models[i].transformNodeChunks[j],
+	                                    transformIndexUnique, groupUniqueIndex);
+                                    nGRP += WriteGroupChunk(writer, groupUniqueIndex, childIds);
+                                }
+                            }
 
                         }
 
@@ -259,6 +274,7 @@ namespace VoxMerger.Vox
                 }
             }
 
+            Console.WriteLine("[LOG] Total Groups : " + totalGroups + " Count group: " + countGroup);
             Console.WriteLine("[LOG] Written RGBA: " + RGBA);
             Console.WriteLine("[LOG] Written MATL: " + MATL);
             Console.WriteLine("[LOG] Written SIZE: " + SIZE);
@@ -612,23 +628,41 @@ namespace VoxMerger.Vox
         private int CountTransformChunkSize()
         {
             int size = 0;
+            Dictionary<int, List<int>> groupIds = new Dictionary<int, List<int>>();
             for (int i = 0; i < _models.Count; i++)
             {
+                groupIds[i] = new List<int>();
                 for (int j = 0; j < _models[i].transformNodeChunks.Count; j++)
                 {
-                    Vector3 worldPosition = _models[i].transformNodeChunks[j].TranslationAt();
-                    Rotation rotation = _models[i].transformNodeChunks[j].RotationAt();
+	                int childId = _models[i].transformNodeChunks[j].childId;
+	                ShapeNodeChunk shapeNode = _models[i].shapeNodeChunks.FirstOrDefault(t => t.id == childId);
+	                GroupNodeChunk groupNode = _models[i].groupNodeChunks.FirstOrDefault(t => t.id == childId);
 
-                    string pos = worldPosition.X + " " + worldPosition.Y + " " + worldPosition.Z;
+	                if (groupNode != null && !groupIds[i].Contains(groupNode.id))
+	                {
+                        groupIds[i].Add(groupNode.id);
+	                }
+	                else
+	                {
+		                groupNode = null;
+	                }
 
-                    size += Encoding.UTF8.GetByteCount(nTRN);
-                    size += 40;
+	                if (shapeNode != null || groupNode != null)
+	                {
 
+						Vector3 worldPosition = _models[i].transformNodeChunks[j].TranslationAt();
+		                Rotation rotation = _models[i].transformNodeChunks[j].RotationAt();
 
-                    size += Encoding.UTF8.GetByteCount("_r");
-                    size += 4;
-                    size += Encoding.UTF8.GetByteCount(Convert.ToString((byte)rotation));
-                    size += 4 + Encoding.UTF8.GetByteCount("_t") + 4 + Encoding.UTF8.GetByteCount(pos);
+		                string pos = worldPosition.X + " " + worldPosition.Y + " " + worldPosition.Z;
+
+		                size += Encoding.UTF8.GetByteCount(nTRN);
+		                size += 40;
+
+		                size += Encoding.UTF8.GetByteCount("_r");
+		                size += 4;
+		                size += Encoding.UTF8.GetByteCount(Convert.ToString((byte) rotation));
+		                size += 4 + Encoding.UTF8.GetByteCount("_t") + 4 + Encoding.UTF8.GetByteCount(pos);
+	                }
                 }
             }
 

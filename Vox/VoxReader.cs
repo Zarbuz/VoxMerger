@@ -170,15 +170,23 @@ namespace VoxMerger.Vox
                         _voxelCountLastXYZIChunk = chunkReader.ReadInt32();
                         var frame = output.voxelFrames[_childCount - 1];
                         byte x, y, z, color;
-                        for (int i = 0; i < _voxelCountLastXYZIChunk; i++)
+                        try
                         {
-                            x = chunkReader.ReadByte();
-                            y = chunkReader.ReadByte();
-                            z = chunkReader.ReadByte();
-                            color = chunkReader.ReadByte();
-                            frame.Set(x, y, z, color);
-                            output.colorUsed.Add(color);
+	                        for (int i = 0; i < _voxelCountLastXYZIChunk; i++)
+	                        {
+		                        x = chunkReader.ReadByte();
+		                        y = chunkReader.ReadByte();
+		                        z = chunkReader.ReadByte();
+		                        color = chunkReader.ReadByte();
+		                        frame.Set(x, y, z, color);
+		                        output.colorUsed.Add(color);
+	                        }
                         }
+                        catch (Exception)
+                        {
+	                        // ignored
+                        }
+
                         break;
                     case RGBA:
                         output.palette = LoadPalette(chunkReader);
