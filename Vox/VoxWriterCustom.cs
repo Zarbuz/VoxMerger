@@ -186,9 +186,12 @@ namespace VoxMerger.Vox
 
             for (int i = 0; i < _models.Count - 1; i++)
             {
-                int max = _models[i].transformNodeChunks.Max(t => t.id);
-                int transformId = max + (max % 2 == 0 ? 2 : 1) + mainGroupIds.Last();
-                mainGroupIds.Add(transformId);
+	            if (_models[i].transformNodeChunks.Count != 0)
+	            {
+		            int max = _models[i].transformNodeChunks.Max(t => t.id);
+		            int transformId = max + (max % 2 == 0 ? 2 : 1) + mainGroupIds.Last();
+		            mainGroupIds.Add(transformId);
+                }
             }
 
             int mnGRP = WriteMainGroupChunk(writer, mainGroupIds);
