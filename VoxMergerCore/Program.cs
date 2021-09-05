@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using FileToVoxCore.Vox;
 using VoxMerger.Vox;
 
 namespace VoxMerger

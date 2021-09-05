@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NDesk.Options" Version="0.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="FileToVoxCommon">
+      <HintPath>..\VoxMerger\lib\FileToVoxCommon.dll</HintPath>
+    </Reference>
+    <Reference Include="FileToVoxCore">
+      <HintPath>..\VoxMerger\lib\FileToVoxCore.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
