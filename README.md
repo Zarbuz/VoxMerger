@@ -11,7 +11,7 @@ MagicaVoxel now support the importation of a complex .vox from the IO Panel
 ![](img/snap2021-04-17-110231.png)
 
 
-# How to use it ? 
+# Usage
 
 - You need to open a console (like cmd or Powershell in Windows)
 - Go to the emplacement of the binary
