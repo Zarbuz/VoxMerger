@@ -19,7 +19,7 @@ namespace VoxMerger
             bool logs = false;
             OptionSet options = new OptionSet()
             {
-                {"i|input=", "input folder", v => inputFolder = v},
+                {"i|input=", "input (list of files or folder)", v => inputFolder = v},
                 {"o|output=", "output file", v => outputFile = v},
                 {"h|help", "show this message and exit", v => shopHelp = v != null},
                 {"d|debug", "enable debug verification", v => debug = v != null },
@@ -34,37 +34,44 @@ namespace VoxMerger
         }
 
 
-        private static void ProcessFolder(string inputFolder, string outputFile, bool logs, bool debug)
+        private static void ProcessFolder(string input, string outputFile, bool logs, bool debug)
         {
-            string folder = Path.GetFullPath(inputFolder);
+	        List<VoxModel> models = new List<VoxModel>();
+	        VoxReader reader = new VoxReader();
 
-            List<string> files = Directory.GetFiles(folder).ToList();
+            try
+	        {
+		        Console.WriteLine("[LOG] Started to read all vox files at path: " + input);
+		        string folder = Path.GetFullPath(input);
+		        List<string> files = Directory.GetFiles(folder).ToList();
 
-            List<VoxModel> models = new List<VoxModel>();
-            VoxReader reader = new VoxReader();
+		        foreach (string file in files)
+		        {
+			        if (Path.GetExtension(file) == ".vox")
+			        {
+				        Console.WriteLine("[LOG] Started to load model: " + file);
+				        models.Add(reader.LoadModel(file));
+			        }
 
-            Console.WriteLine("[LOG] Started to read all vox files at path: " + folder);
-            foreach (string file in files)
-            {
-                if (Path.GetExtension(file) == ".vox")
-                {
-                    Console.WriteLine("[LOG] Started to load model: " + file);
-                    models.Add(reader.LoadModel(file));
-                }
-
+		        }
+            }
+	        catch (Exception e)
+	        {
+		        List<string> files = input.Split(",").ToList();
+		        foreach (string file in files)
+		        {
+			        if (Path.GetExtension(file) == ".vox")
+			        {
+				        Console.WriteLine("[LOG] Started to load model: " + file);
+				        models.Add(reader.LoadModel(file));
+			        }
+		        }
             }
 
-            VoxWriterCustom writer = new VoxWriterCustom();
-            if (outputFile.Contains(".vox"))
-            {
-                writer.WriteModel(outputFile, models);
-                reader.LoadModel(outputFile, logs, debug);
-            }
-            else
-            {
-                writer.WriteModel(outputFile + ".vox", models);
-                reader.LoadModel(outputFile + ".vox", logs, debug);
-            }
+			VoxWriterCustom writer = new VoxWriterCustom();
+			outputFile = outputFile.Contains(".vox") ? outputFile : outputFile + ".vox";
+			writer.WriteModel(outputFile, models);
+			reader.LoadModel(outputFile, logs, debug);
         }
 
         private static void CheckArguments(string inputFolder, string outputFile)
