@@ -16,7 +16,7 @@ MagicaVoxel now support the importation of a complex .vox from the IO Panel
 - You need to open a console (like cmd or Powershell in Windows)
 - Go to the emplacement of the binary
 - Launch the command : `./VoxMerger.exe --i [INPUT] --o [OUTPUT]`
-- [INPUT] refer to a folder filepath (mandatory)
+- [INPUT] refer to a folder filepath (mandatory) or a list of files, each file must be separate with a comma ','
 - [OUTPUT] refer to the destination path (mandatory)
 
 ![](img/snap2020-02-06-21-30-14.png)
