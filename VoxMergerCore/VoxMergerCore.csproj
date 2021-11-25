@@ -6,16 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="FileToVoxCore" Version="1.0.6" />
     <PackageReference Include="NDesk.Options" Version="0.2.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="FileToVoxCommon">
-      <HintPath>..\VoxMerger\lib\FileToVoxCommon.dll</HintPath>
-    </Reference>
-    <Reference Include="FileToVoxCore">
-      <HintPath>..\VoxMerger\lib\FileToVoxCore.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>

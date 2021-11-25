@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "VoxMergerCore": {
+      "commandName": "Project",
+      "commandLineArgs": "--i test3/MiscBuilding1.vox,test3/MiscBuilding2.vox --o test"
+    }
+  }
+}
