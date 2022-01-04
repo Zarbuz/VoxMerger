@@ -36,42 +36,38 @@ namespace VoxMerger
 
         private static void ProcessFolder(string input, string outputFile, bool logs, bool debug)
         {
-	        List<VoxModel> models = new List<VoxModel>();
-	        VoxReader reader = new VoxReader();
-
             try
 	        {
 		        Console.WriteLine("[LOG] Started to read all vox files at path: " + input);
 		        string folder = Path.GetFullPath(input);
 		        List<string> files = Directory.GetFiles(folder).ToList();
-
-		        foreach (string file in files)
-		        {
-			        if (Path.GetExtension(file) == ".vox")
-			        {
-				        Console.WriteLine("[LOG] Started to load model: " + file);
-				        models.Add(reader.LoadModel(file));
-			        }
-
-		        }
-            }
+		        ReadVoxelModels(files, outputFile, logs, debug);
+	        }
 	        catch (Exception e)
 	        {
 		        List<string> files = input.Split(",").ToList();
-		        foreach (string file in files)
-		        {
-			        if (Path.GetExtension(file) == ".vox")
-			        {
-				        Console.WriteLine("[LOG] Started to load model: " + file);
-				        models.Add(reader.LoadModel(file));
-			        }
-		        }
+		        ReadVoxelModels(files, outputFile, logs, debug);
+            }
+        }
+
+        private static void ReadVoxelModels(List<string> files, string outputFile, bool logs, bool debug)
+		{
+			List<VoxModel> models = new List<VoxModel>();
+			VoxReader reader = new VoxReader();
+
+            foreach (string file in files.Where(file => Path.GetExtension(file) == ".vox"))
+            {
+	            Console.WriteLine("[LOG] Started to load model: " + file);
+	            models.Add(reader.LoadModel(file, false, false, false, false));
             }
 
-			VoxWriterCustom writer = new VoxWriterCustom();
-			outputFile = outputFile.Contains(".vox") ? outputFile : outputFile + ".vox";
-			writer.WriteModel(outputFile, models);
-			reader.LoadModel(outputFile, logs, debug);
+            VoxWriterCustom writer = new VoxWriterCustom();
+            outputFile = outputFile.Contains(".vox") ? outputFile : outputFile + ".vox";
+            writer.WriteModel(outputFile, models);
+            if (debug)
+			{
+				reader.LoadModel(outputFile, logs, true);
+            }
         }
 
         private static void CheckArguments(string inputFolder, string outputFile)

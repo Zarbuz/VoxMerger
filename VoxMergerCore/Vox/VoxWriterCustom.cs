@@ -3,10 +3,10 @@ using FileToVoxCore.Vox;
 using FileToVoxCore.Vox.Chunks;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using FileToVoxCore.Drawing;
 using VoxMerger.Utils;
 
 namespace VoxMerger.Vox
