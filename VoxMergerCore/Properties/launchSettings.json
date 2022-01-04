@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "VoxMergerCore": {
-      "commandName": "Project",
-      "commandLineArgs": "--i inputFolder --o test2"
-    }
-  }
-}
