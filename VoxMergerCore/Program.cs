@@ -5,53 +5,49 @@ using System.IO;
 using System.Linq;
 using FileToVoxCore.Vox;
 using VoxMerger.Vox;
+using VoxMergerCore.DTO;
 
 namespace VoxMerger
 {
-    class Program
+	internal class Program
     {
-        static void Main(string[] args)
-        {
-            string inputFolder = string.Empty;
-            string outputFile = string.Empty;
-            bool shopHelp = false;
-            bool debug = false;
-            bool logs = false;
+	    private static void Main(string[] args)
+	    {
+		    ProgramOptions programOptions = new ProgramOptions();
             OptionSet options = new OptionSet()
             {
-                {"i|input=", "input (list of files or folder)", v => inputFolder = v},
-                {"o|output=", "output file", v => outputFile = v},
-                {"h|help", "show this message and exit", v => shopHelp = v != null},
-                {"d|debug", "enable debug verification", v => debug = v != null },
-                {"l|log", "enable writing logs", v =>  logs = v != null}
+                {"i|input=", "input (list of files or folder)", v => programOptions.InputFolder = v},
+                {"o|output=", "output file", v => programOptions.OutputFile = v},
+                {"h|help", "show this message and exit", v => programOptions.ShopHelp = v != null},
+                {"d|debug", "enable debug verification", v => programOptions.EnableDebug = v != null },
+                {"l|log", "enable writing logs", v =>  programOptions.EnableLogs = v != null},
+                {"u|union", "union all regions into one", v =>  programOptions.Union = v != null}
             };
 
             List<string> extra = options.Parse(args);
-            CheckHelp(options, shopHelp);
-            CheckArguments(inputFolder, outputFile);
-            ProcessFolder(inputFolder, outputFile, logs, debug);
-
+            CheckHelp(options, programOptions.ShopHelp);
+            CheckArguments(programOptions.InputFolder, programOptions.OutputFile);
+            ProcessFolder(programOptions);
         }
 
-
-        private static void ProcessFolder(string input, string outputFile, bool logs, bool debug)
+        private static void ProcessFolder(ProgramOptions programOptions)
         {
 	        List<string> files;
-	        string folder = Path.GetFullPath(input);
+	        string folder = Path.GetFullPath(programOptions.InputFolder);
 	        if (Directory.Exists(folder))
 	        {
-		        Console.WriteLine("[LOG] Started to read all vox files at path: " + input);
+		        Console.WriteLine("[LOG] Started to read all vox files at path: " + programOptions.InputFolder);
 		        files = Directory.GetFiles(folder).ToList();
             }
 	        else
 	        {
-		        files = input.Split(",").ToList();
+		        files = programOptions.InputFolder.Split(",").ToList();
             }
             
-            ReadVoxelModels(files, outputFile, logs, debug);
+            ReadVoxelModels(files, programOptions);
         }
 
-        private static void ReadVoxelModels(List<string> files, string outputFile, bool logs, bool debug)
+        private static void ReadVoxelModels(List<string> files, ProgramOptions programOptions)
 		{
 			List<VoxModel> models = new List<VoxModel>();
 			VoxReader reader = new VoxReader();
@@ -63,17 +59,16 @@ namespace VoxMerger
             }
 
             VoxWriterCustom writer = new VoxWriterCustom();
-            outputFile = outputFile.Contains(".vox") ? outputFile : outputFile + ".vox";
             if (models.Count == 0)
             {
                 Console.WriteLine("[ERR] No models founds! Abort.");
             }
             else
             {
-	            writer.WriteModel(outputFile, models);
-	            if (debug)
+	            writer.WriteModel(programOptions.GetSageOutputFile(), models);
+	            if (programOptions.EnableDebug)
 	            {
-		            reader.LoadModel(outputFile, logs, true);
+		            reader.LoadModel(programOptions.OutputFile, programOptions.EnableLogs, true);
 	            }
             }
         }
