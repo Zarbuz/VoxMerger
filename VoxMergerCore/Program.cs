@@ -51,6 +51,7 @@ namespace VoxMerger
 			        {
 				        Console.WriteLine("[LOG] Started to load model: " + file);
 				        models.Add(reader.LoadModel(file));
+                        break;
 			        }
 
 		        }
@@ -67,7 +68,6 @@ namespace VoxMerger
 			        }
 		        }
             }
-
 			VoxWriterCustom writer = new VoxWriterCustom();
 			outputFile = outputFile.Contains(".vox") ? outputFile : outputFile + ".vox";
 			writer.WriteModel(outputFile, models);
