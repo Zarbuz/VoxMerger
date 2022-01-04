@@ -2,3 +2,4 @@
 bin/
 obj/
 Build/
+VoxMergerCore/Properties/launchSettings.json
