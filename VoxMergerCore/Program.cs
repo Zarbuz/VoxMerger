@@ -36,18 +36,19 @@ namespace VoxMerger
 
         private static void ProcessFolder(string input, string outputFile, bool logs, bool debug)
         {
-            try
+	        List<string> files;
+	        string folder = Path.GetFullPath(input);
+	        if (Directory.Exists(folder))
 	        {
 		        Console.WriteLine("[LOG] Started to read all vox files at path: " + input);
-		        string folder = Path.GetFullPath(input);
-		        List<string> files = Directory.GetFiles(folder).ToList();
-		        ReadVoxelModels(files, outputFile, logs, debug);
-	        }
-	        catch (Exception e)
-	        {
-		        List<string> files = input.Split(",").ToList();
-		        ReadVoxelModels(files, outputFile, logs, debug);
+		        files = Directory.GetFiles(folder).ToList();
             }
+	        else
+	        {
+		        files = input.Split(",").ToList();
+            }
+            
+            ReadVoxelModels(files, outputFile, logs, debug);
         }
 
         private static void ReadVoxelModels(List<string> files, string outputFile, bool logs, bool debug)
@@ -63,10 +64,17 @@ namespace VoxMerger
 
             VoxWriterCustom writer = new VoxWriterCustom();
             outputFile = outputFile.Contains(".vox") ? outputFile : outputFile + ".vox";
-            writer.WriteModel(outputFile, models);
-            if (debug)
-			{
-				reader.LoadModel(outputFile, logs, true);
+            if (models.Count == 0)
+            {
+                Console.WriteLine("[ERR] No models founds! Abort.");
+            }
+            else
+            {
+	            writer.WriteModel(outputFile, models);
+	            if (debug)
+	            {
+		            reader.LoadModel(outputFile, logs, true);
+	            }
             }
         }
 
