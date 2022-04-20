@@ -16,7 +16,7 @@ namespace VoxMerger.Vox
         private List<VoxModel> mModels;
         private int mTotalBlockCount;
         private readonly List<Color> mUsedColors = new List<Color>();
-        private readonly List<MaterialChunk> mUsedMaterialChunks = new List<MaterialChunk>();
+        private readonly Dictionary<Color, List<MaterialChunk>> mUsedMaterialChunks = new Dictionary<Color, List<MaterialChunk>>();
         private readonly Dictionary<int, KeyValuePair<int, int>> mUsedIndexColors = new Dictionary<int, KeyValuePair<int, int>>();
         public bool WriteModel(string absolutePath, List<VoxModel> models)
         {
@@ -459,8 +459,8 @@ namespace VoxMerger.Vox
                 {
                     for (int x = 0; x < model.VoxelFrames[index].VoxelsWide; x++)
                     {
-                        int PaletteIndex = model.VoxelFrames[index].GetSafe(x, y, z);
-                        Color color = model.Palette[PaletteIndex];
+                        int paletteIndex = model.VoxelFrames[index].GetSafe(x, y, z);
+                        Color color = model.Palette[paletteIndex];
 
                         if (color != Color.Empty)
                         {
@@ -567,13 +567,24 @@ namespace VoxMerger.Vox
                 for (int i = 0; i < mModels.Count; i++)
                 {
                     VoxModel model = mModels[i];
-                    for (int j = 0; j < model.Palette.Length; j++)
+                    for (int j = 1; j < model.Palette.Length; j++)
                     {
                         Color color = model.Palette[j];
-                        if (mUsedColors.Count < 256 && !mUsedColors.Contains(color) && color != Color.Empty && mModels[i].ColorUsed.Contains(j))
+                        MaterialChunk materialChunk = model.MaterialChunks[j - 1];
+                        bool containsColor = mUsedColors.Contains(color);
+                        if (containsColor)
                         {
-                            mUsedIndexColors[usedIndexColor] = new KeyValuePair<int, int>(i, j);
-                            mUsedColors.Add(color);
+	                        containsColor = mUsedMaterialChunks[color].Contains(materialChunk);
+                        }
+                        if (mUsedColors.Count < 256 && !containsColor && color != Color.Empty && mModels[i].ColorUsed.Contains(j))
+						{
+							mUsedIndexColors[usedIndexColor] = new KeyValuePair<int, int>(i, j);
+                            if (!mUsedMaterialChunks.ContainsKey(color))
+                            {
+	                            mUsedMaterialChunks[color] = new List<MaterialChunk>();
+                            }
+                            mUsedMaterialChunks[color].Add(materialChunk);
+							mUsedColors.Add(color);
                             usedIndexColor++;
                         }
 
@@ -589,12 +600,12 @@ namespace VoxMerger.Vox
             {
                 if (mUsedIndexColors.ContainsKey(i))
                 {
-                    KeyValuePair<int, int> modelIndex = mUsedIndexColors[i];
-                    if (mModels[modelIndex.Key].MaterialChunks.Count > modelIndex.Value - 1)
+	                (int key, int value) = mUsedIndexColors[i];
+	                if (mModels[key].MaterialChunks.Count > value - 1)
                     {
                         size += Encoding.UTF8.GetByteCount(MATL) + 16;
 
-                        size += mModels[modelIndex.Key].MaterialChunks[modelIndex.Value - 1].Properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
+                        size += mModels[key].MaterialChunks[value - 1].Properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
                     }
                 }
                 else
