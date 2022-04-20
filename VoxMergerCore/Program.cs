@@ -55,7 +55,7 @@ namespace VoxMerger
             foreach (string file in files.Where(file => Path.GetExtension(file) == ".vox"))
             {
 	            Console.WriteLine("[LOG] Started to load model: " + file);
-	            models.Add(reader.LoadModel(file, false, false, false, false));
+	            models.Add(reader.LoadModel(file, false, false, false));
             }
 
             VoxWriterCustom writer = new VoxWriterCustom();

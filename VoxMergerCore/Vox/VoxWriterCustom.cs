@@ -100,7 +100,7 @@ namespace VoxMerger.Vox
                         {
                             for (int x = 0; x < data.VoxelsWide; x++)
                             {
-                                int indexColor = data.Get(x, y, z);
+                                int indexColor = data.GetSafe(x, y, z);
                                 Color color = colorsPalette[indexColor];
                                 if (color != Color.Empty)
                                 {
@@ -445,9 +445,9 @@ namespace VoxMerger.Vox
             writer.Write(Encoding.UTF8.GetBytes(XYZI));
             //int testA = (model.VoxelFrames[index].Colors.Count(t => t != 0));
             //int testB = model.VoxelFrames[index].Colors.Length;
-            writer.Write((model.VoxelFrames[index].Colors.Count(t => t != 0) * 4) + 4); //XYZI chunk size
+            writer.Write((model.VoxelFrames[index].Colors.Values.Count(t => t != 0) * 4) + 4); //XYZI chunk size
             writer.Write(0); //Child chunk size (constant)
-            writer.Write(model.VoxelFrames[index].Colors.Count(t => t != 0)); //Blocks count
+            writer.Write(model.VoxelFrames[index].Colors.Values.Count(t => t != 0)); //Blocks count
 
             byteWritten += Encoding.UTF8.GetByteCount(XYZI) + 12;
             int count = 0;
@@ -457,7 +457,7 @@ namespace VoxMerger.Vox
                 {
                     for (int x = 0; x < model.VoxelFrames[index].VoxelsWide; x++)
                     {
-                        int PaletteIndex = model.VoxelFrames[index].Get(x, y, z);
+                        int PaletteIndex = model.VoxelFrames[index].GetSafe(x, y, z);
                         Color color = model.Palette[PaletteIndex];
 
                         if (color != Color.Empty)
