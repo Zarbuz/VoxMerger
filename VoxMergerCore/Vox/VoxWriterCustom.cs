@@ -11,17 +11,40 @@ using VoxMerger.Utils;
 
 namespace VoxMerger.Vox
 {
+	public struct MaterialChunkCount : IEquatable<MaterialChunkCount>
+	{
+        public MaterialChunk MaterialChunk;
+        public int GlobalIndex;
+
+        public bool Equals(MaterialChunkCount other)
+        {
+	        return Equals(MaterialChunk, other.MaterialChunk);
+        }
+
+        public override bool Equals(object obj)
+        {
+	        return obj is MaterialChunkCount other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+	        return (MaterialChunk != null ? MaterialChunk.GetHashCode() : 0);
+        }
+	}
+
 	public class VoxWriterCustom : VoxParser
     {
-        private List<VoxModel> _models;
-        private int _totalBlockCount;
-        private List<Color> _usedColors = new List<Color>();
-        private Dictionary<int, KeyValuePair<int, int>> _usedIndexColors = new Dictionary<int, KeyValuePair<int, int>>();
+        private List<VoxModel> mModels;
+        private int mTotalBlockCount;
+        private readonly List<Color> mUsedColors = new List<Color>();
+        private readonly Dictionary<Color, List<MaterialChunkCount>> mUsedMaterialChunks = new Dictionary<Color, List<MaterialChunkCount>>();
+        private readonly Dictionary<int, KeyValuePair<int, int>> mUsedIndexColors = new Dictionary<int, KeyValuePair<int, int>>();
         public bool WriteModel(string absolutePath, List<VoxModel> models)
         {
-            _models = models;
-            _usedColors.Clear();
-            _usedIndexColors.Clear();
+            mModels = models;
+            mUsedColors.Clear();
+            mUsedIndexColors.Clear();
+            mUsedMaterialChunks.Clear();
             using (var writer = new BinaryWriter(File.Open(absolutePath, FileMode.Create)))
             {
                 writer.Write(Encoding.UTF8.GetBytes(HEADER));
@@ -47,12 +70,12 @@ namespace VoxMerger.Vox
 
         private int CountChildrenSize()
         {
-            _totalBlockCount = CountTotalBlocks();
+            mTotalBlockCount = CountTotalBlocks();
             int totalModels = CountTotalModels();
-            Console.WriteLine("[INFO] Total blocks: " + _totalBlockCount);
+            Console.WriteLine("[INFO] Total blocks: " + mTotalBlockCount);
 
             int chunkSIZE = 24 * totalModels; //24 = 12 bytes for header and 12 bytes of content
-            int chunkXYZI = (16 * totalModels) + _totalBlockCount * 4; //16 = 12 bytes for header and 4 for the voxel count + (number of voxels) * 4
+            int chunkXYZI = (16 * totalModels) + mTotalBlockCount * 4; //16 = 12 bytes for header and 4 for the voxel count + (number of voxels) * 4
             int chunknGRP = CountGroupChunkSize();
             int chunknTRN = CountTransformChunkSize();
             int chunknSHP = CountShapeChunkSize();
@@ -88,19 +111,19 @@ namespace VoxMerger.Vox
         {
             int total = 0;
 
-            for (int i = 0; i < _models.Count; i++)
+            for (int i = 0; i < mModels.Count; i++)
             {
-                Color[] colorsPalette = _models[i].Palette;
-                for (int j = 0; j < _models[i].VoxelFrames.Count; j++)
+                Color[] colorsPalette = mModels[i].Palette;
+                for (int j = 0; j < mModels[i].VoxelFrames.Count; j++)
                 {
-                    VoxelData data = _models[i].VoxelFrames[j];
+                    VoxelData data = mModels[i].VoxelFrames[j];
                     for (int y = 0; y < data.VoxelsTall; y++)
                     {
                         for (int z = 0; z < data.VoxelsDeep; z++)
                         {
                             for (int x = 0; x < data.VoxelsWide; x++)
                             {
-                                int indexColor = data.Get(x, y, z);
+                                int indexColor = data.GetSafe(x, y, z);
                                 Color color = colorsPalette[indexColor];
                                 if (color != Color.Empty)
                                 {
@@ -116,17 +139,17 @@ namespace VoxMerger.Vox
 
         private int CountTotalTransforms()
         {
-            return _models.Sum(t => t.TransformNodeChunks.Count);
+            return mModels.Sum(t => t.TransformNodeChunks.Count);
         }
 
         private int CountTotalModels()
         {
-            return _models.Sum(t => t.VoxelFrames.Count);
+            return mModels.Sum(t => t.VoxelFrames.Count);
         }
 
         private int CountTotalGroups()
         {
-            return _models.Sum(t => t.GroupNodeChunks.Count);
+            return mModels.Sum(t => t.GroupNodeChunks.Count);
         }
         /// <summary>
         /// Main loop for write all chunks
@@ -140,17 +163,17 @@ namespace VoxMerger.Vox
             int MATL = 0;
             for (int i = 0; i < 256; i++)
             {
-                if (_usedIndexColors.ContainsKey(i))
+                if (mUsedIndexColors.ContainsKey(i))
                 {
-                    KeyValuePair<int, int> modelIndex = _usedIndexColors[i];
-                    if (_models[modelIndex.Key].MaterialChunks.Count > modelIndex.Value - 1)
+	                (int key, int value) = mUsedIndexColors[i];
+	                if (mModels[key].MaterialChunks.Count > value - 1)
                     {
-                        MATL += WriteMaterialChunk(writer, _models[modelIndex.Key].MaterialChunks[modelIndex.Value - 1], i + 1);
+                        MATL += WriteMaterialChunk(writer, mModels[key].MaterialChunks[value - 1], i + 1);
                     }
                 }
-                else if (_models[0].MaterialChunks.Count > 0)
+                else if (mModels[0].MaterialChunks.Count > 0)
                 {
-                    MATL += WriteMaterialChunk(writer, _models[0].MaterialChunks[0], i + 1);
+                    MATL += WriteMaterialChunk(writer, mModels[0].MaterialChunks[0], i + 1);
                 }
             }
 
@@ -162,7 +185,7 @@ namespace VoxMerger.Vox
             {
                 int totalModels = CountTotalModels();
                 int indexProgression = 0;
-                foreach (VoxModel model in _models)
+                foreach (VoxModel model in mModels)
                 {
                     for (int j = 0; j < model.VoxelFrames.Count; j++)
                     {
@@ -185,11 +208,11 @@ namespace VoxMerger.Vox
             List<int> mainGroupIds = new List<int>();
             mainGroupIds.Add(2);
 
-            for (int i = 0; i < _models.Count - 1; i++)
+            for (int i = 0; i < mModels.Count - 1; i++)
             {
-	            if (_models[i].TransformNodeChunks.Count != 0)
+	            if (mModels[i].TransformNodeChunks.Count != 0)
 	            {
-		            int max = _models[i].TransformNodeChunks.Max(t => t.Id);
+		            int max = mModels[i].TransformNodeChunks.Max(t => t.Id);
 		            int transformId = max + (max % 2 == 0 ? 2 : 1) + mainGroupIds.Last();
 		            mainGroupIds.Add(transformId);
                 }
@@ -207,15 +230,15 @@ namespace VoxMerger.Vox
                 int indexModel = 0;
                 mainGroupIds.Clear();
                 mainGroupIds.Add(2);
-                for (int i = 0; i < _models.Count; i++)
+                for (int i = 0; i < mModels.Count; i++)
                 {
-                    for (int j = 0; j < _models[i].TransformNodeChunks.Count; j++)
+                    for (int j = 0; j < mModels[i].TransformNodeChunks.Count; j++)
                     {
-                        int childId = _models[i].TransformNodeChunks[j].ChildId;
+                        int childId = mModels[i].TransformNodeChunks[j].ChildId;
 
                         int transformIndexUnique = indexChunk++;
                        
-                        ShapeNodeChunk shapeNode = _models[i].ShapeNodeChunks.FirstOrDefault(t => t.Id == childId);
+                        ShapeNodeChunk shapeNode = mModels[i].ShapeNodeChunks.FirstOrDefault(t => t.Id == childId);
                         if (shapeNode != null)
                         {
                             int modelId = shapeNode.Models[0].ModelId + i;
@@ -228,7 +251,7 @@ namespace VoxMerger.Vox
                             }
 
                             int shapeIndexUnique = (shapeNode.Id + ((i + 1) * 2000) + 2); //Hack
-                            nTRN += WriteTransformChunk(writer, _models[i].TransformNodeChunks[j], transformIndexUnique,  shapeIds.ContainsKey(shapeIndexUnique) ? shapeIds[shapeIndexUnique] : indexChunk);
+                            nTRN += WriteTransformChunk(writer, mModels[i].TransformNodeChunks[j], transformIndexUnique,  shapeIds.ContainsKey(shapeIndexUnique) ? shapeIds[shapeIndexUnique] : indexChunk);
 
                             if (!shapeIds.ContainsKey(shapeIndexUnique))
                             {
@@ -239,7 +262,7 @@ namespace VoxMerger.Vox
                         }
                         else
                         {
-                            GroupNodeChunk groupNode = _models[i].GroupNodeChunks.FirstOrDefault(t => t.Id == childId);
+                            GroupNodeChunk groupNode = mModels[i].GroupNodeChunks.FirstOrDefault(t => t.Id == childId);
 
                             int groupUniqueIndex = indexChunk++;
 
@@ -249,7 +272,7 @@ namespace VoxMerger.Vox
                                 childIds[index] += mainGroupIds.Last();
                             }
 
-                            nTRN += WriteTransformChunk(writer, _models[i].TransformNodeChunks[j], transformIndexUnique, groupUniqueIndex);
+                            nTRN += WriteTransformChunk(writer, mModels[i].TransformNodeChunks[j], transformIndexUnique, groupUniqueIndex);
                             nGRP += WriteGroupChunk(writer, groupUniqueIndex, childIds);
 
                         }
@@ -258,7 +281,7 @@ namespace VoxMerger.Vox
                         indexProgression++;
                     }
 
-                    int max = _models[i].TransformNodeChunks.Max(t => t.Id);
+                    int max = mModels[i].TransformNodeChunks.Max(t => t.Id);
                     mainGroupIds.Add( max + (max % 2 == 0 ? 2 : 1) + mainGroupIds.Last());
                 }
             }
@@ -445,9 +468,9 @@ namespace VoxMerger.Vox
             writer.Write(Encoding.UTF8.GetBytes(XYZI));
             //int testA = (model.VoxelFrames[index].Colors.Count(t => t != 0));
             //int testB = model.VoxelFrames[index].Colors.Length;
-            writer.Write((model.VoxelFrames[index].Colors.Count(t => t != 0) * 4) + 4); //XYZI chunk size
+            writer.Write((model.VoxelFrames[index].Colors.Values.Count(t => t != 0) * 4) + 4); //XYZI chunk size
             writer.Write(0); //Child chunk size (constant)
-            writer.Write(model.VoxelFrames[index].Colors.Count(t => t != 0)); //Blocks count
+            writer.Write(model.VoxelFrames[index].Colors.Values.Count(t => t != 0)); //Blocks count
 
             byteWritten += Encoding.UTF8.GetByteCount(XYZI) + 12;
             int count = 0;
@@ -457,8 +480,9 @@ namespace VoxMerger.Vox
                 {
                     for (int x = 0; x < model.VoxelFrames[index].VoxelsWide; x++)
                     {
-                        int PaletteIndex = model.VoxelFrames[index].Get(x, y, z);
-                        Color color = model.Palette[PaletteIndex];
+                        int paletteIndex = model.VoxelFrames[index].GetSafe(x, y, z);
+                        Color color = model.Palette[paletteIndex];
+                        MaterialChunk materialChunk = model.MaterialChunks[paletteIndex - 1 >= 0 ? paletteIndex - 1 : 0];
 
                         if (color != Color.Empty)
                         {
@@ -466,7 +490,8 @@ namespace VoxMerger.Vox
                             writer.Write((byte)(y % model.VoxelFrames[index].VoxelsTall));
                             writer.Write((byte)(z % model.VoxelFrames[index].VoxelsDeep));
 
-                            int i = _usedColors.IndexOf(color) + 1;
+                            MaterialChunkCount materialChunkCount = mUsedMaterialChunks[color].FirstOrDefault(m => m.MaterialChunk.Equals(materialChunk));
+                            int i = materialChunkCount.GlobalIndex + 1;
                             writer.Write((i != 0) ? (byte)i : (byte)1);
                             count++;
 
@@ -493,9 +518,9 @@ namespace VoxMerger.Vox
 
             byteCount += Encoding.UTF8.GetByteCount(RGBA) + 8;
 
-            for (int i = 0; i < _usedColors.Count; i++)
+            for (int i = 0; i < mUsedColors.Count; i++)
             {
-                Color color = _usedColors[i];
+                Color color = mUsedColors[i];
                 writer.Write(color.R);
                 writer.Write(color.G);
                 writer.Write(color.B);
@@ -503,7 +528,7 @@ namespace VoxMerger.Vox
                 byteCount += 4;
             }
 
-            for (int i = (256 - _usedColors.Count); i >= 1; i--)
+            for (int i = (256 - mUsedColors.Count); i >= 1; i--)
             {
                 writer.Write((byte)0);
                 writer.Write((byte)0);
@@ -562,21 +587,34 @@ namespace VoxMerger.Vox
             int globalIndex = 0;
             using (ProgressBar progressBar = new ProgressBar())
             {
-                for (int i = 0; i < _models.Count; i++)
+                for (int i = 0; i < mModels.Count; i++)
                 {
-                    VoxModel model = _models[i];
-                    for (int j = 0; j < model.Palette.Length; j++)
+                    VoxModel model = mModels[i];
+                    for (int j = 1; j < model.Palette.Length; j++)
                     {
                         Color color = model.Palette[j];
-                        if (_usedColors.Count < 256 && !_usedColors.Contains(color) && color != Color.Empty && _models[i].ColorUsed.Contains(j))
+                        MaterialChunk materialChunk = model.MaterialChunks[j - 1];
+                        MaterialChunkCount materialChunkCount = new MaterialChunkCount() { MaterialChunk = materialChunk};
+                        bool containsColor = mUsedColors.Contains(color);
+                        if (containsColor)
                         {
-                            _usedIndexColors[usedIndexColor] = new KeyValuePair<int, int>(i, j);
-                            _usedColors.Add(color);
+	                        containsColor = mUsedMaterialChunks[color].Contains(materialChunkCount);
+                        }
+                        if (mUsedColors.Count < 256 && !containsColor && color != Color.Empty && mModels[i].ColorUsed.Contains(j))
+						{
+							mUsedIndexColors[usedIndexColor] = new KeyValuePair<int, int>(i, j);
+							materialChunkCount.GlobalIndex = usedIndexColor;
+                            if (!mUsedMaterialChunks.ContainsKey(color))
+                            {
+	                            mUsedMaterialChunks[color] = new List<MaterialChunkCount>();
+                            }
+                            mUsedMaterialChunks[color].Add(materialChunkCount);
+							mUsedColors.Add(color);
                             usedIndexColor++;
                         }
 
                         globalIndex++;
-                        progressBar.Report(globalIndex / (float)(_models.Count * 256));
+                        progressBar.Report(globalIndex / (float)(mModels.Count * 256));
                     }
                 }
             }
@@ -585,22 +623,22 @@ namespace VoxMerger.Vox
             int size = 0;
             for (int i = 0; i < 256; i++)
             {
-                if (_usedIndexColors.ContainsKey(i))
+                if (mUsedIndexColors.ContainsKey(i))
                 {
-                    KeyValuePair<int, int> modelIndex = _usedIndexColors[i];
-                    if (_models[modelIndex.Key].MaterialChunks.Count > modelIndex.Value - 1)
+	                (int key, int value) = mUsedIndexColors[i];
+	                if (mModels[key].MaterialChunks.Count > value - 1)
                     {
                         size += Encoding.UTF8.GetByteCount(MATL) + 16;
 
-                        size += _models[modelIndex.Key].MaterialChunks[modelIndex.Value - 1].Properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
+                        size += mModels[key].MaterialChunks[value - 1].Properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
                     }
                 }
                 else
                 {
-					if (_models[0].MaterialChunks.Count > 0)
+					if (mModels[0].MaterialChunks.Count > 0)
 					{
 						size += Encoding.UTF8.GetByteCount(MATL) + 16;
-						size += _models[0].MaterialChunks[0].Properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
+						size += mModels[0].MaterialChunks[0].Properties.Sum(keyValue => 8 + Encoding.UTF8.GetByteCount(keyValue.Key) + Encoding.UTF8.GetByteCount(keyValue.Value));
 					}
 				}
             }
@@ -616,12 +654,12 @@ namespace VoxMerger.Vox
         private int CountTransformChunkSize()
         {
             int size = 0;
-            for (int i = 0; i < _models.Count; i++)
+            for (int i = 0; i < mModels.Count; i++)
             {
-                for (int j = 0; j < _models[i].TransformNodeChunks.Count; j++)
+                for (int j = 0; j < mModels[i].TransformNodeChunks.Count; j++)
                 {
-                    Vector3 worldPosition = _models[i].TransformNodeChunks[j].TranslationAt();
-                    Rotation rotation = _models[i].TransformNodeChunks[j].RotationAt();
+                    Vector3 worldPosition = mModels[i].TransformNodeChunks[j].TranslationAt();
+                    Rotation rotation = mModels[i].TransformNodeChunks[j].RotationAt();
 
                     string pos = worldPosition.X + " " + worldPosition.Y + " " + worldPosition.Z;
 
@@ -647,11 +685,11 @@ namespace VoxMerger.Vox
         {
             int size = 0;
             List<int> shapeIds = new List<int>();
-            for (int i = 0; i < _models.Count; i++)
+            for (int i = 0; i < mModels.Count; i++)
             {
-                for (int j = 0; j < _models[i].ShapeNodeChunks.Count; j++)
+                for (int j = 0; j < mModels[i].ShapeNodeChunks.Count; j++)
                 {
-                    ShapeNodeChunk shapeNode = _models[i].ShapeNodeChunks[j];
+                    ShapeNodeChunk shapeNode = mModels[i].ShapeNodeChunks[j];
                     int id = (shapeNode.Id + (i * 2000) + 2);
                     if (!shapeIds.Contains(id))
                     {
@@ -671,12 +709,12 @@ namespace VoxMerger.Vox
         private int CountGroupChunkSize()
         {
             int byteWritten = 0;
-            for (int i = 0; i < _models.Count; i++)
+            for (int i = 0; i < mModels.Count; i++)
             {
-                for (int j = 0; j < _models[i].GroupNodeChunks.Count; j++)
+                for (int j = 0; j < mModels[i].GroupNodeChunks.Count; j++)
                 {
                     byteWritten += Encoding.UTF8.GetByteCount(nGRP) + 20;
-                    byteWritten += _models[i].GroupNodeChunks[j].ChildIds.ToList().Sum(id => 4);
+                    byteWritten += mModels[i].GroupNodeChunks[j].ChildIds.ToList().Sum(id => 4);
                 }
             }
 
@@ -691,7 +729,7 @@ namespace VoxMerger.Vox
         {
             int byteWritten = 0;
             byteWritten += Encoding.UTF8.GetByteCount(nGRP) + 20;
-            byteWritten += _models.Sum(id => 4);
+            byteWritten += mModels.Sum(id => 4);
 
             return byteWritten;
         }

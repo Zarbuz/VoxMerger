@@ -3,10 +3,11 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
+    <PackageId>$(AssemblyName)</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FileToVoxCore" Version="1.0.9.4" />
+    <PackageReference Include="FileToVoxCore" Version="1.1.3" />
     <PackageReference Include="NDesk.Options" Version="0.2.1" />
   </ItemGroup>
 

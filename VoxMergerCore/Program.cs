@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using FileToVoxCore.Vox;
+using VoxMerger.DTO;
 using VoxMerger.Vox;
-using VoxMergerCore.DTO;
 
 namespace VoxMerger
 {
@@ -55,7 +55,7 @@ namespace VoxMerger
             foreach (string file in files.Where(file => Path.GetExtension(file) == ".vox"))
             {
 	            Console.WriteLine("[LOG] Started to load model: " + file);
-	            models.Add(reader.LoadModel(file, false, false, false, false));
+	            models.Add(reader.LoadModel(file, false, false, false));
             }
 
             VoxWriterCustom writer = new VoxWriterCustom();
