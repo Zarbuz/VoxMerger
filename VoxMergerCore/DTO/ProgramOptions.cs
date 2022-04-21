@@ -1,4 +1,4 @@
-﻿namespace VoxMergerCore.DTO
+﻿namespace VoxMerger.DTO
 {
 	public class ProgramOptions
 	{

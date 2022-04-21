@@ -11,12 +11,33 @@ using VoxMerger.Utils;
 
 namespace VoxMerger.Vox
 {
+	public struct MaterialChunkCount : IEquatable<MaterialChunkCount>
+	{
+        public MaterialChunk MaterialChunk;
+        public int GlobalIndex;
+
+        public bool Equals(MaterialChunkCount other)
+        {
+	        return Equals(MaterialChunk, other.MaterialChunk);
+        }
+
+        public override bool Equals(object obj)
+        {
+	        return obj is MaterialChunkCount other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+	        return (MaterialChunk != null ? MaterialChunk.GetHashCode() : 0);
+        }
+	}
+
 	public class VoxWriterCustom : VoxParser
     {
         private List<VoxModel> mModels;
         private int mTotalBlockCount;
         private readonly List<Color> mUsedColors = new List<Color>();
-        private readonly Dictionary<Color, List<MaterialChunk>> mUsedMaterialChunks = new Dictionary<Color, List<MaterialChunk>>();
+        private readonly Dictionary<Color, List<MaterialChunkCount>> mUsedMaterialChunks = new Dictionary<Color, List<MaterialChunkCount>>();
         private readonly Dictionary<int, KeyValuePair<int, int>> mUsedIndexColors = new Dictionary<int, KeyValuePair<int, int>>();
         public bool WriteModel(string absolutePath, List<VoxModel> models)
         {
@@ -144,10 +165,10 @@ namespace VoxMerger.Vox
             {
                 if (mUsedIndexColors.ContainsKey(i))
                 {
-                    KeyValuePair<int, int> modelIndex = mUsedIndexColors[i];
-                    if (mModels[modelIndex.Key].MaterialChunks.Count > modelIndex.Value - 1)
+	                (int key, int value) = mUsedIndexColors[i];
+	                if (mModels[key].MaterialChunks.Count > value - 1)
                     {
-                        MATL += WriteMaterialChunk(writer, mModels[modelIndex.Key].MaterialChunks[modelIndex.Value - 1], i + 1);
+                        MATL += WriteMaterialChunk(writer, mModels[key].MaterialChunks[value - 1], i + 1);
                     }
                 }
                 else if (mModels[0].MaterialChunks.Count > 0)
@@ -461,6 +482,7 @@ namespace VoxMerger.Vox
                     {
                         int paletteIndex = model.VoxelFrames[index].GetSafe(x, y, z);
                         Color color = model.Palette[paletteIndex];
+                        MaterialChunk materialChunk = model.MaterialChunks[paletteIndex - 1 >= 0 ? paletteIndex - 1 : 0];
 
                         if (color != Color.Empty)
                         {
@@ -468,7 +490,8 @@ namespace VoxMerger.Vox
                             writer.Write((byte)(y % model.VoxelFrames[index].VoxelsTall));
                             writer.Write((byte)(z % model.VoxelFrames[index].VoxelsDeep));
 
-                            int i = mUsedColors.IndexOf(color) + 1;
+                            MaterialChunkCount materialChunkCount = mUsedMaterialChunks[color].FirstOrDefault(m => m.MaterialChunk.Equals(materialChunk));
+                            int i = materialChunkCount.GlobalIndex + 1;
                             writer.Write((i != 0) ? (byte)i : (byte)1);
                             count++;
 
@@ -571,19 +594,21 @@ namespace VoxMerger.Vox
                     {
                         Color color = model.Palette[j];
                         MaterialChunk materialChunk = model.MaterialChunks[j - 1];
+                        MaterialChunkCount materialChunkCount = new MaterialChunkCount() { MaterialChunk = materialChunk};
                         bool containsColor = mUsedColors.Contains(color);
                         if (containsColor)
                         {
-	                        containsColor = mUsedMaterialChunks[color].Contains(materialChunk);
+	                        containsColor = mUsedMaterialChunks[color].Contains(materialChunkCount);
                         }
                         if (mUsedColors.Count < 256 && !containsColor && color != Color.Empty && mModels[i].ColorUsed.Contains(j))
 						{
 							mUsedIndexColors[usedIndexColor] = new KeyValuePair<int, int>(i, j);
+							materialChunkCount.GlobalIndex = usedIndexColor;
                             if (!mUsedMaterialChunks.ContainsKey(color))
                             {
-	                            mUsedMaterialChunks[color] = new List<MaterialChunk>();
+	                            mUsedMaterialChunks[color] = new List<MaterialChunkCount>();
                             }
-                            mUsedMaterialChunks[color].Add(materialChunk);
+                            mUsedMaterialChunks[color].Add(materialChunkCount);
 							mUsedColors.Add(color);
                             usedIndexColor++;
                         }

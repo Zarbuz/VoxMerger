@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using FileToVoxCore.Vox;
+using VoxMerger.DTO;
 using VoxMerger.Vox;
-using VoxMergerCore.DTO;
 
 namespace VoxMerger
 {
